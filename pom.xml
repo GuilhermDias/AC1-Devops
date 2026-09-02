@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.example</groupId>
-    <artifactId>AC1-DevOps</artifactId>
+    <artifactId>Grupo10_ATDD</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>AC1-DevOps</name>
     <description>AC1-DevOps</description>
