@@ -1,31 +1,57 @@
-package org.example.ac1devops.domain.guilherme;
+package org.example.ac1devops.domain;
 
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class StudentTest {
 
-    private Student student;
+    @Test
+    void deveSubirDeNivelQuandoXpCruzaFaixaBronzeParaPrata() {
+        Student student = new Student("Aluno US1");
+        student.receiveXp("ATIVIDADE_CONCLUIDA", 80); // aluno chega a 80 XP, ainda Bronze
 
-    @BeforeEach
-    void setUp() {
-        // arrange: leva o aluno de Bronze ate Diamante com 4 chamadas reais de receiveXp,
-        // gerando exatamente 3 eventos de level-up (Bronze->Prata, Prata->Ouro, Ouro->Diamante)
-        student = new Student("Aluno Teste");
-        student.receiveXp("SETUP", 50);   // 50  -> BRONZE   (sem evento)
-        student.receiveXp("SETUP", 100);  // 150 -> PRATA     (evento 1)
-        student.receiveXp("SETUP", 200);  // 350 -> OURO      (evento 2)
-        student.receiveXp("SETUP", 400);  // 750 -> DIAMANTE  (evento 3)
+        student.receiveXp("ATIVIDADE_CONCLUIDA", 30);
+
+        assertThat(student.getXpTotal()).isEqualTo(110);
+        assertThat(student.getLevel()).isEqualTo(Level.PRATA);
+        assertThat(student.getLevelUpEvents()).hasSize(1);
+        assertThat(student.getLevelUpEvents().get(0).getToLevel()).isEqualTo(Level.PRATA);
+    }
+
+    @Test
+    void deveAcumularXpSemMudarNivelQuandoPermaneceNaMesmaFaixa() {
+        Student student = new Student("Aluno US2");
+        student.receiveXp("ATIVIDADE_CONCLUIDA", 10); // aluno chega a 10 XP, Bronze
+
+        student.receiveXp("ATIVIDADE_CONCLUIDA", 20);
+
+        assertThat(student.getXpTotal()).isEqualTo(30);
+        assertThat(student.getLevel()).isEqualTo(Level.BRONZE);
+        assertThat(student.getLevelUpEvents()).isEmpty();
     }
 
     @Test
     void naoDeveGerarNovoLevelUpQuandoAlunoJaEstaNoNivelMaximo() {
+        Student student = new Student("Aluno US3");
+        student.receiveXp("ATIVIDADE_CONCLUIDA", 750); // sobe ate Diamante
+
         student.receiveXp("ATIVIDADE_CONCLUIDA", 100);
 
-        assertEquals(850, student.getXpTotal());
-        assertEquals(Level.DIAMANTE, student.getLevel());
-        assertEquals(3, student.getLevelUpHistory().size());
+        assertThat(student.getXpTotal()).isEqualTo(850);
+        assertThat(student.getLevel()).isEqualTo(Level.DIAMANTE);
+        assertThat(student.getLevelUpEvents()).hasSize(3);
+    }
+
+    @Test
+    void deveRetornarXpTotalNivelEHistoricoDeLevelUpsAoConsultarPerfil() {
+        Student student = new Student("Aluno US4");
+
+        student.receiveXp("AULA_CONCLUIDA", 150);
+        student.receiveXp("QUIZ_NOTA_ALTA", 200);
+
+        assertThat(student.getXpTotal()).isEqualTo(350);
+        assertThat(student.getLevel()).isEqualTo(Level.OURO);
+        assertThat(student.getLevelUpEvents()).hasSize(2);
     }
 }
