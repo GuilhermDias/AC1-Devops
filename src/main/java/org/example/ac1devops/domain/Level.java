@@ -1,4 +1,4 @@
-package org.example.ac1devops.domain.guilherme;
+package org.example.ac1devops.domain;
 
 /**
  * Niveis de gamificacao e as faixas de XP total necessarias para cada um.

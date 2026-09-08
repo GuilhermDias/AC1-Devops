@@ -1,4 +1,4 @@
-package org.example.ac1devops.domain.guilherme;
+package org.example.ac1devops.domain;
 
 import java.util.ArrayList;
 import java.util.List;
