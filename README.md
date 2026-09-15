@@ -24,9 +24,7 @@ Tabela de faixas de XP:
 ## Stack
 
 - Java 21, Spring Boot 4.1.1 (Maven, artifactId `Grupo10_ATDD`)
-- Spring Data JPA + **PostgreSQL 16 em container Docker** (perfil padrão `postgres`);
-  H2 em memória permanece disponível no perfil `h2` para dev sem Docker e é o banco usado
-  pelos testes
+- Spring Data JPA + **PostgreSQL 16 em container Docker** (perfil padrão `postgres`)
 - Docker: build multi-stage da aplicação + `docker compose` com Postgres, pgAdmin e a API
 - Springdoc OpenAPI / Swagger UI
 - Testes: JUnit 5, AssertJ, Mockito, JaCoCo (0.8.13)
@@ -57,23 +55,14 @@ docker compose down          # para os containers, preserva os dados
 docker compose down -v       # remove também os volumes (zera o banco)
 ```
 
-### Sem Docker (H2 em memória)
-
-```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=h2
-```
-
-Nesse perfil o console do H2 fica em `http://localhost:8080/h2-console`
-(JDBC URL `jdbc:h2:mem:ac1devopsdb`, usuário `sa`, senha vazia).
-
 ## Como testar
 
 ```bash
 ./mvnw test
 ```
 
-Os testes **não dependem de Docker**: `src/test/resources/application.properties` força o perfil
-`h2`, então a suíte roda offline contra o banco em memória. Relatório de cobertura JaCoCo gerado
+Os testes **não dependem de Docker nem de um Postgres no ar**: rodam sempre contra um banco em
+memória, configurado automaticamente no classpath de teste. Relatório de cobertura JaCoCo gerado
 em `target/site/jacoco/index.html` a cada execução.
 
 ## Arquitetura
@@ -95,8 +84,7 @@ Infraestrutura (raiz do projeto):
 
 Perfis (src/main/resources):
 ├── application.properties           config comum + perfil padrao (postgres)
-├── application-postgres.properties  datasource do container, via variaveis de ambiente
-└── application-h2.properties        banco em memoria para dev local sem Docker
+└── application-postgres.properties  datasource do container, via variaveis de ambiente
 ```
 
 **Por que domínio e entity são classes separadas:** `Student`/`Level`/`LevelUpEvent` são POJOs
@@ -110,18 +98,17 @@ persiste de volta só os eventos novos.
 
 ### Decisões da migração para Postgres
 
-- **Postgres é o perfil padrão, H2 continua existindo.** `spring.profiles.active` cai em
-  `postgres` quando `SPRING_PROFILES_ACTIVE` não é informado, que é o que o `docker compose`
-  define. O perfil `h2` foi mantido para desenvolvimento sem Docker e é o que a suíte de
-  testes usa — assim `./mvnw test` continua rodando offline e a cobertura de 100% segue
-  reproduzível sem subir container nenhum.
+- **Postgres é o único perfil de execução.** `spring.profiles.active` cai em `postgres` quando
+  `SPRING_PROFILES_ACTIVE` não é informado, que é o que o `docker compose` define. Os testes
+  usam um banco em memória à parte, configurado só no classpath de teste — assim `./mvnw test`
+  continua rodando offline e a cobertura de 100% segue reproduzível sem subir container nenhum.
 - **A aplicação não conhece host, usuário nem senha.** `application-postgres.properties` lê
   tudo de `SPRING_DATASOURCE_*` com defaults para `localhost`; o compose injeta o host real
   (`postgres`, o nome do serviço na rede). A mesma imagem serve para qualquer ambiente.
 - **`depends_on` com `condition: service_healthy`.** O Postgres tem healthcheck com
   `pg_isready`; sem isso a API subiria antes do banco aceitar conexões e quebraria no start.
 - **Dados sobrevivem ao `down`.** O volume nomeado `postgres_data` guarda `/var/lib/postgresql/data`
-  — diferente do H2, o estado agora persiste entre execuções (é o ponto da migração).
+  — o estado persiste entre execuções (é o ponto da migração para um banco de verdade).
 - **Build multi-stage.** A imagem final carrega só JRE 21 + `app.jar`, sem Maven nem código-fonte.
   O `pom.xml` é copiado antes do `src` para que o cache de dependências do Docker só seja
   invalidado quando as dependências realmente mudarem.
@@ -168,7 +155,7 @@ Boot) é excluído da métrica por não ser código de negócio. Detalhes em
 
 - Migração de schema versionada com Flyway ou Liquibase, substituindo `ddl-auto=update`.
 - Testes de integração contra o Postgres real (Testcontainers), complementando os testes
-  atuais em H2.
+  atuais em banco de memória.
 - Pipeline de CI executando `./mvnw test` e publicando a imagem Docker.
 
 ## Créditos
