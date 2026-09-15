@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LevelUpEventEntity.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AC1-DevOps</a> &gt; <a href="index.source.html" class="el_package">org.example.ac1devops.entity</a> &gt; <span class="el_source">LevelUpEventEntity.java</span></div><h1>LevelUpEventEntity.java</h1><pre class="source lang-java linenums">package org.example.ac1devops.entity;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.ManyToOne;
+import org.example.ac1devops.domain.Level;
+
+/**
+ * Representacao JPA de um {@link org.example.ac1devops.domain.LevelUpEvent} pertencente a um
+ * {@link StudentEntity}.
+ */
+@Entity
+public class LevelUpEventEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Enumerated(EnumType.STRING)
+    private Level fromLevel;
+
+    @Enumerated(EnumType.STRING)
+    private Level toLevel;
+
+    @ManyToOne
+    private StudentEntity student;
+
+<span class="fc" id="L32">    protected LevelUpEventEntity() {</span>
+<span class="fc" id="L33">    }</span>
+
+<span class="fc" id="L35">    public LevelUpEventEntity(Level fromLevel, Level toLevel) {</span>
+<span class="fc" id="L36">        this.fromLevel = fromLevel;</span>
+<span class="fc" id="L37">        this.toLevel = toLevel;</span>
+<span class="fc" id="L38">    }</span>
+
+    public Long getId() {
+<span class="fc" id="L41">        return id;</span>
+    }
+
+    public Level getFromLevel() {
+<span class="fc" id="L45">        return fromLevel;</span>
+    }
+
+    public Level getToLevel() {
+<span class="fc" id="L49">        return toLevel;</span>
+    }
+
+    public StudentEntity getStudent() {
+<span class="fc" id="L53">        return student;</span>
+    }
+
+    public void setStudent(StudentEntity student) {
+<span class="fc" id="L57">        this.student = student;</span>
+<span class="fc" id="L58">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

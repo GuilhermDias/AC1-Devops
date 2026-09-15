@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="pt"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>StudentService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">AC1-DevOps</a> &gt; <a href="index.source.html" class="el_package">org.example.ac1devops.service</a> &gt; <span class="el_source">StudentService.java</span></div><h1>StudentService.java</h1><pre class="source lang-java linenums">package org.example.ac1devops.service;
+
+import java.util.List;
+import org.example.ac1devops.domain.Level;
+import org.example.ac1devops.domain.LevelUpEvent;
+import org.example.ac1devops.domain.Student;
+import org.example.ac1devops.dto.CreateStudentRequestDTO;
+import org.example.ac1devops.dto.LevelUpEventDTO;
+import org.example.ac1devops.dto.ReceiveXpRequestDTO;
+import org.example.ac1devops.dto.StudentResponseDTO;
+import org.example.ac1devops.entity.LevelUpEventEntity;
+import org.example.ac1devops.entity.StudentEntity;
+import org.example.ac1devops.repository.StudentRepository;
+import org.springframework.stereotype.Service;
+
+/**
+ * Ponte entre {@link StudentEntity} (persistencia) e {@link Student} (regra de negocio de
+ * XP/nivel, ja testada a 100% no dominio). A entity guarda o estado final; quem recalcula
+ * transicoes de nivel continua sendo o dominio.
+ */
+@Service
+public class StudentService {
+
+    private final StudentRepository studentRepository;
+
+<span class="fc" id="L26">    public StudentService(StudentRepository studentRepository) {</span>
+<span class="fc" id="L27">        this.studentRepository = studentRepository;</span>
+<span class="fc" id="L28">    }</span>
+
+    public StudentResponseDTO createStudent(CreateStudentRequestDTO request) {
+<span class="fc" id="L31">        StudentEntity entity = studentRepository.save(new StudentEntity(request.name()));</span>
+<span class="fc" id="L32">        return toResponseDTO(entity);</span>
+    }
+
+    public StudentResponseDTO receiveXp(Long id, ReceiveXpRequestDTO request) {
+<span class="fc" id="L36">        StudentEntity entity = findEntityOrThrow(id);</span>
+
+<span class="fc" id="L38">        Student student = toDomain(entity);</span>
+<span class="fc" id="L39">        int eventsBefore = student.getLevelUpEvents().size();</span>
+<span class="fc" id="L40">        student.receiveXp(request.reason(), request.amount());</span>
+
+<span class="fc" id="L42">        entity.setXpTotal(student.getXpTotal());</span>
+<span class="fc" id="L43">        entity.setLevel(student.getLevel());</span>
+<span class="fc" id="L44">        List&lt;LevelUpEvent&gt; newEvents = student.getLevelUpEvents()</span>
+<span class="fc" id="L45">                .subList(eventsBefore, student.getLevelUpEvents().size());</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        for (LevelUpEvent event : newEvents) {</span>
+<span class="fc" id="L47">            entity.addLevelUpEvent(new LevelUpEventEntity(event.getFromLevel(), event.getToLevel()));</span>
+<span class="fc" id="L48">        }</span>
+
+<span class="fc" id="L50">        return toResponseDTO(studentRepository.save(entity));</span>
+    }
+
+    public StudentResponseDTO getStudent(Long id) {
+<span class="fc" id="L54">        return toResponseDTO(findEntityOrThrow(id));</span>
+    }
+
+    public List&lt;StudentResponseDTO&gt; listStudents() {
+<span class="fc" id="L58">        return studentRepository.findAll().stream().map(this::toResponseDTO).toList();</span>
+    }
+
+    private StudentEntity findEntityOrThrow(Long id) {
+<span class="fc" id="L62">        return studentRepository.findById(id).orElseThrow(() -&gt; new StudentNotFoundException(id));</span>
+    }
+
+    /**
+     * Reconstroi um {@link Student} de dominio a partir do XP total ja persistido. Como
+     * {@link Level#fromXp} e {@code Student.processLevelUp} dependem so do total acumulado (nao
+     * do caminho), um unico {@code receiveXp} com o total ja salvo recria o mesmo nivel e a
+     * mesma sequencia de eventos que ja estao na entity.
+     */
+    private Student toDomain(StudentEntity entity) {
+<span class="fc" id="L72">        Student student = new Student(entity.getName());</span>
+<span class="fc bfc" id="L73" title="All 2 branches covered.">        if (entity.getXpTotal() &gt; 0) {</span>
+<span class="fc" id="L74">            student.receiveXp(&quot;RECONSTRUCAO_ESTADO&quot;, entity.getXpTotal());</span>
+        }
+<span class="fc" id="L76">        return student;</span>
+    }
+
+    private StudentResponseDTO toResponseDTO(StudentEntity entity) {
+<span class="fc" id="L80">        List&lt;LevelUpEventDTO&gt; events = entity.getLevelUpEvents().stream()</span>
+<span class="fc" id="L81">                .map(event -&gt; new LevelUpEventDTO(event.getFromLevel(), event.getToLevel()))</span>
+<span class="fc" id="L82">                .toList();</span>
+<span class="fc" id="L83">        return new StudentResponseDTO(</span>
+<span class="fc" id="L84">                entity.getId(), entity.getName(), entity.getXpTotal(), entity.getLevel(), events);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

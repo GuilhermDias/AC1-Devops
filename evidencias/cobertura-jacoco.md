@@ -44,14 +44,40 @@ Boot.
 | `Student.receiveXp()` com XP inválido | `StudentTest.naoDeveProcessarXpInvalido()` cobre a guarda `amount <= 0` adicionada no refactor |
 | `OpenApiConfig` | `SwaggerIntegrationTest` exercita o bean `educationOpenAPI()` ao consultar `/v3/api-docs` |
 
-Fonte bruta (CSV gerado pelo JaCoCo após sincronizar com `origin/main` + `feature/swagger`):
+## Camadas REST (Entity/Repository/DTO/Service/Controller) — após BLUE
+
+Com o domínio já 100% coberto, as camadas novas em cima dele (`entity`, `service`, `web`, `dto`)
+também fecharam em 100% em todas as métricas, com `StudentRepositoryTest` (`@DataJpaTest`),
+`StudentServiceTest` (Mockito) e `StudentControllerTest` (`@WebMvcTest` + `MockMvcTester`):
+
+| Classe | Instruções | Branches | Linhas | Métodos | Status |
+|---|---|---|---|---|---|
+| `Student`, `Level`, `LevelUpEvent` (domínio) | 100% | 100% | 100% | 100% | VERDE |
+| `OpenApiConfig` | 100% | 100% | 100% | 100% | VERDE |
+| `StudentEntity`, `LevelUpEventEntity` | 100% | 100% | 100% | 100% | VERDE |
+| `StudentService`, `StudentNotFoundException` | 100% | 100% | 100% | 100% | VERDE |
+| `StudentController`, `ApiExceptionHandler` | 100% | 100% | 100% | 100% | VERDE |
+| `CreateStudentRequestDTO`, `ReceiveXpRequestDTO`, `LevelUpEventDTO`, `StudentResponseDTO` | 100% | 100% | 100% | 100% | VERDE |
+| **TOTAL (projeto inteiro, exceto bootstrap)** | **100%** | **100%** | **100%** | **100%** | |
+
+Fonte bruta (CSV gerado pelo JaCoCo com o projeto completo):
 
 ```
 GROUP,PACKAGE,CLASS,INSTRUCTION_MISSED,INSTRUCTION_COVERED,BRANCH_MISSED,BRANCH_COVERED,LINE_MISSED,LINE_COVERED,COMPLEXITY_MISSED,COMPLEXITY_COVERED,METHOD_MISSED,METHOD_COVERED
+AC1-DevOps,org.example.ac1devops.web,StudentController,0,32,0,0,0,7,0,5,0,5
+AC1-DevOps,org.example.ac1devops.web,ApiExceptionHandler,0,11,0,0,0,2,0,2,0,2
+AC1-DevOps,org.example.ac1devops.entity,StudentEntity,0,57,0,0,0,20,0,10,0,10
+AC1-DevOps,org.example.ac1devops.entity,LevelUpEventEntity,0,28,0,0,0,12,0,7,0,7
 AC1-DevOps,org.example.ac1devops.config,OpenApiConfig,0,17,0,0,0,6,0,2,0,2
+AC1-DevOps,org.example.ac1devops.service,StudentNotFoundException,0,5,0,0,0,2,0,1,0,1
+AC1-DevOps,org.example.ac1devops.service,StudentService,0,155,0,4,0,29,0,12,0,10
 AC1-DevOps,org.example.ac1devops.domain,Student,0,74,0,4,0,22,0,9,0,7
-AC1-DevOps,org.example.ac1devops.domain,Level,0,68,0,4,0,14,0,6,0,4
 AC1-DevOps,org.example.ac1devops.domain,LevelUpEvent,0,15,0,0,0,6,0,3,0,3
+AC1-DevOps,org.example.ac1devops.domain,Level,0,68,0,4,0,14,0,6,0,4
+AC1-DevOps,org.example.ac1devops.dto,ReceiveXpRequestDTO,0,9,0,0,0,1,0,1,0,1
+AC1-DevOps,org.example.ac1devops.dto,LevelUpEventDTO,0,9,0,0,0,1,0,1,0,1
+AC1-DevOps,org.example.ac1devops.dto,CreateStudentRequestDTO,0,6,0,0,0,1,0,1,0,1
+AC1-DevOps,org.example.ac1devops.dto,StudentResponseDTO,0,18,0,0,0,1,0,1,0,1
 ```
 
 Relatório HTML navegável (para print): `evidencias/jacoco-report/index.html`
