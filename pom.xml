@@ -75,6 +75,14 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
+                <configuration>
+                    <!-- Classe de bootstrap do Spring Boot (main()): não é código de domínio,
+                         testar main() diretamente não agrega valor. Prática padrão em projetos
+                         Spring para não poluir a métrica de cobertura com a classe de entrada. -->
+                    <excludes>
+                        <exclude>**/Ac1DevOpsApplication.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
