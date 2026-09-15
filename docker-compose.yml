@@ -1,0 +1,79 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Banco de dados: Postgres em container, com volume nomeado para os dados
+  # sobreviverem a um 'docker compose down'.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: ac1devops-postgres
+    hostname: postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ac1devops_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    # A app so sobe depois que o banco responde de fato (nao basta o container existir).
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ac1devops_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      app_net:
+        aliases:
+          - postgres
+
+  # ---------------------------------------------------------------------------
+  # pgAdmin: interface web para inspecionar as tabelas students / level_up_events.
+  # ---------------------------------------------------------------------------
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: ac1devops-pgadmin
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - app_net
+
+  # ---------------------------------------------------------------------------
+  # Aplicacao Spring Boot: construida pelo Dockerfile deste diretorio.
+  # O host do banco e 'postgres' (nome do servico na rede do compose), nao localhost.
+  # ---------------------------------------------------------------------------
+  app:
+    build: .
+    container_name: ac1devops-app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: postgres
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ac1devops_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+    ports:
+      - "8080:8080"
+    networks:
+      - app_net
+
+volumes:
+  postgres_data:
+  pgadmin_data:
+
+networks:
+  app_net:
+    driver: bridge

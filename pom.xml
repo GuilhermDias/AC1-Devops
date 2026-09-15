@@ -48,6 +48,13 @@
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
+        <!-- Banco de producao/execucao: Postgres em container (perfil 'postgres', o padrao). -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Banco em memoria: usado pelos testes e pelo perfil 'h2' (dev sem Docker). -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
@@ -75,6 +82,14 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
+                <configuration>
+                    <!-- Classe de bootstrap do Spring Boot (main()): não é código de domínio,
+                         testar main() diretamente não agrega valor. Prática padrão em projetos
+                         Spring para não poluir a métrica de cobertura com a classe de entrada. -->
+                    <excludes>
+                        <exclude>**/Ac1DevOpsApplication.class</exclude>
+                    </excludes>
+                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
