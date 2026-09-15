@@ -1,0 +1,46 @@
+==============================================================
+ EVIDENCIA DOCKER — AC1-DevOps (Grupo 10)
+ Captura real da stack em execucao (portas remapeadas nesta
+ captura para nao conflitar com outra stack no ar na maquina:
+ app 18080, postgres 15432, pgadmin 15050).
+==============================================================
+
+----- docker compose ps -----
+NAME                 IMAGE              COMMAND                  SERVICE    CREATED          STATUS                    PORTS
+ac1devops-app        ac1-devops-app     "java -jar /app/app.…"   app        23 seconds ago   Up 21 seconds             0.0.0.0:18080->8080/tcp, [::]:18080->8080/tcp
+ac1devops-pgadmin    dpage/pgadmin4:9   "/entrypoint.sh"         pgadmin    57 seconds ago   Up 51 seconds             0.0.0.0:15050->80/tcp, [::]:15050->80/tcp
+ac1devops-postgres   postgres:16        "docker-entrypoint.s…"   postgres   57 seconds ago   Up 57 seconds (healthy)   0.0.0.0:15432->5432/tcp, [::]:15432->5432/tcp
+
+----- Startup da aplicacao (perfil e banco) -----
+2026-09-15T22:58:24.163Z  INFO 1 --- [AC1-DevOps] [           main] o.e.ac1devops.Ac1DevOpsApplication       : The following 1 profile is active: "postgres"
+	Database JDBC URL [jdbc:postgresql://postgres:5432/ac1devops_db]
+	Database driver: PostgreSQL JDBC Driver
+	Database dialect: PostgreSQLDialect
+	Database version: 16.15
+2026-09-15T22:58:26.071Z  INFO 1 --- [AC1-DevOps] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-09-15T22:58:26.080Z  INFO 1 --- [AC1-DevOps] [           main] o.e.ac1devops.Ac1DevOpsApplication       : Started Ac1DevOpsApplication in 2.085 seconds (process running for 2.299)
+
+----- Schema gerado no Postgres -----
+              List of relations
+ Schema |      Name       | Type  |  Owner   
+--------+-----------------+-------+----------
+ public | level_up_events | table | postgres
+ public | students        | table | postgres
+(2 rows)
+
+----- Dados persistidos (apos ciclo docker compose down/up) -----
+ id | level |     name     | xp_total 
+----+-------+--------------+----------
+  1 | OURO  | Aluno Docker |      320
+(1 row)
+
+ id | from_level | to_level | student_id 
+----+------------+----------+------------
+  1 | BRONZE     | PRATA    |          1
+  2 | PRATA      | OURO     |          1
+(2 rows)
+
+----- Swagger / OpenAPI -----
+GET /swagger-ui/index.html -> HTTP 200
+GET /v3/api-docs          -> HTTP 200
+GET / (pgAdmin)           -> HTTP 302
