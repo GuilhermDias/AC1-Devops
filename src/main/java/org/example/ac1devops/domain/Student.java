@@ -6,10 +6,8 @@ import java.util.List;
 /**
  * Aluno da plataforma de Educacao Continuada Gamificada.
  *
- * <p>POJO puro (sem anotacao de framework) — nesta fase RED/GREEN nao ha JPA, Spring,
- * Service, Repository nem DTO. Sustenta os cenarios das US1 a US4: acumular XP, subir de
- * nivel registrando o historico e continuar acumulando no nivel maximo sem gerar novos
- * eventos de level-up.</p>
+ * <p>POJO puro refatorado para a fase BLUE: mantém a lógica de acumular XP,
+ * subir de nível registrando o histórico e continuar acumulando no nível máximo.</p>
  */
 public class Student {
 
@@ -23,18 +21,23 @@ public class Student {
     }
 
     /**
-     * Soma {@code amount} ao XP total e promove o aluno pelas faixas que ele atravessar.
+     * Soma {@code amount} ao XP total e gerencia a promoção de níveis.
      *
-     * <p>Cada faixa ultrapassada gera um {@link LevelUpEvent} proprio, de modo que o
-     * historico registra a evolucao completa mesmo quando o aluno pula varios niveis de
-     * uma so vez. Se o nivel calculado for igual ao atual (caso da US3, aluno ja em
-     * Diamante), nenhum evento e adicionado e o historico permanece intacto.</p>
-     *
-     * @param reason motivo da concessao de XP (ainda nao usado nesta fase)
+     * @param reason motivo da concessao de XP
      * @param amount quantidade de XP recebida
      */
     public void receiveXp(String reason, int amount) {
+        if (amount <= 0) {
+            return;
+        }
         xpTotal += amount;
+        processLevelUp();
+    }
+
+    /**
+     * Extrai a lógica de progressão de níveis para melhorar a legibilidade.
+     */
+    private void processLevelUp() {
         Level nivelAlcancado = Level.fromXp(xpTotal);
         while (level.ordinal() < nivelAlcancado.ordinal()) {
             Level proximoNivel = Level.values()[level.ordinal() + 1];
@@ -58,4 +61,4 @@ public class Student {
     public List<LevelUpEvent> getLevelUpEvents() {
         return levelUpEvents;
     }
-}
+}   
