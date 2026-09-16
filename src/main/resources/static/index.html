@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8" />
+    <title>Educação Continuada Gamificada</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f6f8; padding: 24px; }
+        .box { max-width: 960px; margin: auto; background: white; padding: 24px; border-radius: 10px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        input, select, button { width: 100%; padding: 10px; margin-bottom: 10px; box-sizing: border-box; }
+        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+        .erro { color: #b00020; }
+        .nivel { font-weight: bold; }
+    </style>
+</head>
+<body>
+<div id="app" class="box">
+    <h1>Educação Continuada Gamificada</h1>
+    <p>Sistema de XP e níveis (US1–US4): Bronze (0–99), Prata (100–299), Ouro (300–699), Diamante (700+).</p>
+
+    <div class="grid">
+        <div>
+            <h2>Criar aluno</h2>
+            <input v-model="novoAluno.name" placeholder="Nome do aluno">
+            <button @click="criarAluno">Criar aluno</button>
+        </div>
+        <div>
+            <h2>Dar XP</h2>
+            <select v-model="xpForm.studentId">
+                <option value="" disabled>Selecione o aluno</option>
+                <option v-for="a in alunos" :key="a.id" :value="a.id">{{ a.id }} - {{ a.name }}</option>
+            </select>
+            <input v-model="xpForm.reason" placeholder="Motivo (ex: ATIVIDADE_CONCLUIDA)">
+            <input v-model.number="xpForm.amount" type="number" placeholder="Quantidade de XP">
+            <button @click="darXp">Dar XP</button>
+        </div>
+        <div>
+            <h2>Consultar por id</h2>
+            <input v-model.number="buscaId" type="number" placeholder="Id do aluno">
+            <button @click="buscarAluno">Consultar</button>
+            <p v-if="erroBusca" class="erro">{{ erroBusca }}</p>
+            <div v-if="alunoBuscado">
+                <p><strong>{{ alunoBuscado.name }}</strong> — {{ alunoBuscado.xpTotal }} XP —
+                    <span class="nivel">{{ alunoBuscado.level }}</span></p>
+            </div>
+        </div>
+    </div>
+
+    <p>{{ mensagem }}</p>
+
+    <h2>Alunos</h2>
+    <button @click="listarAlunos">Atualizar lista</button>
+    <table>
+        <thead>
+        <tr><th>Id</th><th>Nome</th><th>XP</th><th>Nível</th><th>Histórico de level-up</th></tr>
+        </thead>
+        <tbody>
+        <tr v-for="a in alunos" :key="a.id">
+            <td>{{ a.id }}</td>
+            <td>{{ a.name }}</td>
+            <td>{{ a.xpTotal }}</td>
+            <td class="nivel">{{ a.level }}</td>
+            <td>{{ historico(a) }}</td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+<script>
+const { createApp } = Vue;
+createApp({
+    data() {
+        return {
+            apiBase: '',
+            mensagem: '',
+            alunos: [],
+            novoAluno: { name: '' },
+            xpForm: { studentId: '', reason: '', amount: 0 },
+            buscaId: '',
+            alunoBuscado: null,
+            erroBusca: ''
+        }
+    },
+    methods: {
+        async request(path, options = {}) {
+            const response = await fetch(this.apiBase + path, {
+                ...options,
+                headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+            });
+            const text = await response.text();
+            if (!response.ok) {
+                const body = text ? JSON.parse(text) : {};
+                throw new Error(body.message || 'Erro');
+            }
+            return text ? JSON.parse(text) : null;
+        },
+        async listarAlunos() {
+            this.alunos = await this.request('/students');
+        },
+        async criarAluno() {
+            if (!this.novoAluno.name) return;
+            await this.request('/students', { method: 'POST', body: JSON.stringify(this.novoAluno) });
+            this.novoAluno = { name: '' };
+            this.mensagem = 'Aluno criado';
+            await this.listarAlunos();
+        },
+        async darXp() {
+            if (!this.xpForm.studentId) return;
+            const atualizado = await this.request('/students/' + this.xpForm.studentId + '/xp', {
+                method: 'POST',
+                body: JSON.stringify({ reason: this.xpForm.reason, amount: this.xpForm.amount })
+            });
+            this.mensagem = atualizado.name + ' agora tem ' + atualizado.xpTotal + ' XP (' + atualizado.level + ')';
+            this.xpForm = { studentId: '', reason: '', amount: 0 };
+            await this.listarAlunos();
+        },
+        async buscarAluno() {
+            this.erroBusca = '';
+            this.alunoBuscado = null;
+            try {
+                this.alunoBuscado = await this.request('/students/' + this.buscaId);
+            } catch (e) {
+                this.erroBusca = e.message;
+            }
+        },
+        historico(aluno) {
+            if (!aluno.levelUpEvents || aluno.levelUpEvents.length === 0) return '—';
+            return aluno.levelUpEvents.map(ev => ev.fromLevel + ' → ' + ev.toLevel).join(', ');
+        }
+    },
+    mounted() {
+        this.listarAlunos();
+    }
+}).mount('#app');
+</script>
+</body>
+</html>

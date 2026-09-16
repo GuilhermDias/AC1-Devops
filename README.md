@@ -26,6 +26,8 @@ Tabela de faixas de XP:
 - Java 21, Spring Boot 4.1.1 (Maven, artifactId `Grupo10_ATDD`)
 - Spring Data JPA + **PostgreSQL 16 em container Docker** (perfil padrão `postgres`)
 - Docker: build multi-stage da aplicação + `docker compose` com Postgres, pgAdmin e a API
+- Front-end: Vue 3 (via CDN, arquivo único sem build step), servido como recurso estático do
+  próprio Spring Boot
 - Springdoc OpenAPI / Swagger UI
 - Testes: JUnit 5, AssertJ, Mockito, JaCoCo (0.8.13)
 
@@ -39,6 +41,7 @@ docker compose up -d --build
 
 | Serviço | Endereço | Credenciais |
 |---|---|---|
+| Front-end | `http://localhost:8080/` | — |
 | API | `http://localhost:8080` | — |
 | Swagger UI | `http://localhost:8080/swagger-ui/index.html` | — |
 | pgAdmin | `http://localhost:5050` | `admin@admin.com` / `admin` |
@@ -77,6 +80,9 @@ src/main/java/org/example/ac1devops/
 ├── web/         StudentController + ApiExceptionHandler (REST)
 └── config/      OpenApiConfig (Swagger/OpenAPI)
 
+src/main/resources/static/
+└── index.html   front-end Vue 3 (CDN, arquivo único) — consome os endpoints de /students
+
 Infraestrutura (raiz do projeto):
 ├── Dockerfile          build multi-stage: Maven/JDK 21 compila, imagem final so com JRE + jar
 ├── .dockerignore       mantem target/, .git e evidencias fora do contexto de build
@@ -95,26 +101,6 @@ exclusivamente o domínio. O `StudentService` reconstrói um `Student` de domín
 total já salvo (um único `receiveXp` com o total acumulado recria a mesma sequência de eventos,
 já que a regra depende só do total de XP, não do caminho percorrido), aplica a nova operação, e
 persiste de volta só os eventos novos.
-
-### Decisões da migração para Postgres
-
-- **Postgres é o único perfil de execução.** `spring.profiles.active` cai em `postgres` quando
-  `SPRING_PROFILES_ACTIVE` não é informado, que é o que o `docker compose` define. Os testes
-  usam um banco em memória à parte, configurado só no classpath de teste — assim `./mvnw test`
-  continua rodando offline e a cobertura de 100% segue reproduzível sem subir container nenhum.
-- **A aplicação não conhece host, usuário nem senha.** `application-postgres.properties` lê
-  tudo de `SPRING_DATASOURCE_*` com defaults para `localhost`; o compose injeta o host real
-  (`postgres`, o nome do serviço na rede). A mesma imagem serve para qualquer ambiente.
-- **`depends_on` com `condition: service_healthy`.** O Postgres tem healthcheck com
-  `pg_isready`; sem isso a API subiria antes do banco aceitar conexões e quebraria no start.
-- **Dados sobrevivem ao `down`.** O volume nomeado `postgres_data` guarda `/var/lib/postgresql/data`
-  — o estado persiste entre execuções (é o ponto da migração para um banco de verdade).
-- **Build multi-stage.** A imagem final carrega só JRE 21 + `app.jar`, sem Maven nem código-fonte.
-  O `pom.xml` é copiado antes do `src` para que o cache de dependências do Docker só seja
-  invalidado quando as dependências realmente mudarem.
-- **Schema gerado por `ddl-auto=update`,** a partir das entities, com `@Table`/`@Column`
-  explícitos (`students`, `level_up_events`) para o schema não depender da convenção de nomes
-  padrão do Hibernate. Migração versionada (Flyway/Liquibase) fica para uma etapa futura.
 
 ## Endpoints
 
@@ -144,6 +130,9 @@ Evidência da containerização e da migração para Postgres (fora do ciclo TDD
 infraestrutura): [`evidencias/DOCKER.md`](evidencias/DOCKER.md) e
 [`evidencias/docker-output.txt`](evidencias/docker-output.txt).
 
+Evidência do front-end exercitando as US1–US4 pela interface (criar aluno, dar XP cruzando
+nível, consultar aluno e tratamento de 404): [`evidencias/FRONTEND.md`](evidencias/FRONTEND.md).
+
 ## Cobertura final
 
 100% de instruções, branches, linhas e métodos em todas as classes do projeto (domínio, entity,
@@ -151,15 +140,9 @@ repository, service, controller, DTOs, config) — `Ac1DevOpsApplication` (boots
 Boot) é excluído da métrica por não ser código de negócio. Detalhes em
 [`evidencias/cobertura-jacoco.md`](evidencias/cobertura-jacoco.md).
 
-## Próximos passos (fora deste escopo)
-
-- Migração de schema versionada com Flyway ou Liquibase, substituindo `ddl-auto=update`.
-- Testes de integração contra o Postgres real (Testcontainers), complementando os testes
-  atuais em banco de memória.
-- Pipeline de CI executando `./mvnw test` e publicando a imagem Docker.
-
 ## Créditos
 
 Grupo 10 — AC1-ATDD. Contribuições via PRs de `viniciusalegre20` (GREEN das US1–US4 e
-containerização com Docker + migração para PostgreSQL), `bruno-cO70` (BLUE do domínio) e
-`GuilhermDias` (sincronização, Swagger, camadas REST e consolidação da documentação).
+containerização com Docker + migração para PostgreSQL), `bruno-cO70` (BLUE do domínio),
+`LeovLuz` (Swagger/OpenAPI) e `GuilhermDias` (sincronização, camadas REST, front-end e
+consolidação da documentação).
