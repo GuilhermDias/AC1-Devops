@@ -258,3 +258,32 @@ Fontes brutas: [`evidencias/jacoco-antes.csv`](evidencias/jacoco-antes.csv) e
 [`evidencias/jacoco-depois.csv`](evidencias/jacoco-depois.csv). Relatório HTML gerado em
 `target/site/jacoco/index.html` a cada `./mvnw verify` e publicado como artifact pelo CI
 (seção 9).
+
+---
+
+## 9. Evidência de DevOps — pipeline de CI
+
+Workflow: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) (não havia workflow
+anterior no repositório).
+
+| Gatilho | Passos |
+|---|---|
+| `push` em qualquer branch e `pull_request` para `main` | 1. `actions/checkout` → 2. `actions/setup-java` (Temurin **21**, igual ao `<java.version>` do `pom.xml`, com cache Maven) → 3. `./mvnw -B clean verify` → 4. publica `target/site/jacoco/` como artifact **`jacoco-report`** e `target/surefire-reports/` como **`surefire-reports`** (mesmo se o build falhar). |
+
+### Como o pipeline protege a decisão arquitetural
+
+1. **A regra modular é código executável.** `ModularArchitectureTest` roda dentro do
+   `mvn verify` como qualquer teste; não depende de revisão manual lembrar da regra.
+2. **Verificada a cada commit e a cada Pull Request.** Todo `push` dispara o workflow; todo PR
+   para a `main` mostra o check `Build, testes, ArchUnit e cobertura`. Um import de
+   `progression.internal` fora do módulo deixa o check **vermelho** com a mensagem do ArchUnit
+   apontando classe e campo/método infrator (exemplo real em
+   [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt)).
+3. **O contrato externo também é protegido.** `StudentEndpointIntegrationTest` falha se a
+   refatoração (ou uma futura extração do Ranking) mudar status/JSON de `/students`.
+4. **Qualidade não regride em silêncio.** `jacoco:check` falha o build abaixo de 90% de linhas ou
+   branches; o relatório fica anexado ao run para auditoria.
+5. **Merge só com CI verde.** Recomendado ativar em *Settings → Branches → Branch protection
+   rules* da `main`: "Require a pull request before merging" + "Require status checks to pass"
+   marcando o check `Build, testes, ArchUnit e cobertura`. Assim a decisão do ADR-001 não pode
+   ser violada nem por push direto na `main`.

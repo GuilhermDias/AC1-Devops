@@ -1,0 +1,54 @@
+name: CI
+
+# Roda em todo push (qualquer branch) e em todo Pull Request para a main. O job 'build' executa
+# o 'mvn verify' completo: testes unitarios, de integracao (H2), regras de arquitetura (ArchUnit)
+# e o piso de cobertura do JaCoCo. Se qualquer um falhar, o check do PR fica vermelho.
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, testes, ArchUnit e cobertura
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar JDK 21 (versao do pom.xml)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build + testes + ArchUnit + jacoco:check
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp clean verify
+
+      - name: Publicar relatorio JaCoCo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          if-no-files-found: warn
+
+      - name: Publicar relatorios de teste (Surefire)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: warn
