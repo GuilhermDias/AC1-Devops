@@ -11,6 +11,13 @@ Cadeia de rastreabilidade seguida neste documento:
 RF → RNF → ASR + RPC → alternativas/trade-offs → ADR → C4 → evidência (código, testes, CI)
 ```
 
+**Resumo da decisão:** Monólito Modular. Não há necessidade comprovada de escala ou deploy
+independente, e a complexidade distribuída não se justifica para 6 devs com um banco relacional
+único. Ranking e Conquistas entram como módulos com API própria. A extração do Ranking tem
+gatilhos mensuráveis (§6). A tabela que liga cada item ao seguinte está na
+**[§12 Rastreabilidade](#12-rastreabilidade)** e o registro formal está no
+[ADR-001](adr/ADR-001-estilo-arquitetural-core.md).
+
 ---
 
 ## 1. Requisitos funcionais (RF)
@@ -287,3 +294,99 @@ anterior no repositório).
    rules* da `main`: "Require a pull request before merging" + "Require status checks to pass"
    marcando o check `Build, testes, ArchUnit e cobertura`. Assim a decisão do ADR-001 não pode
    ser violada nem por push direto na `main`.
+
+---
+
+## 10. Decisão registrada — ADR
+
+[ADR-001 — Estilo arquitetural do Core: Monólito Modular](adr/ADR-001-estilo-arquitetural-core.md)
+(status **Aceito**, 2026-10-06).
+
+## 11. C4
+
+### C4 — Nível 2 (Container)
+
+A decisão é **interna ao Core**, então o diagrama de containers **não muda**: continuam um
+único container de aplicação e um único banco. Esse é justamente o efeito pretendido, porque não
+entra nenhum container, rede ou pipeline novo. O impacto aparece no nível de componentes, logo
+abaixo.
+
+```mermaid
+C4Container
+  title Plataforma de Educação Continuada Gamificada — Containers (após ADR-001)
+
+  Person(aluno, "Aluno", "Acumula XP, sobe de nível e (futuro) consulta ranking e conquistas")
+  Person(ops, "Equipe (6 devs)", "Desenvolve, opera e inspeciona o banco")
+
+  System_Boundary(plataforma, "Plataforma") {
+    Container(spa, "Front-end", "Vue 3 via CDN (static/index.html)", "Servido pelo próprio Core na raiz '/'")
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 (Monólito Modular)", "Módulo progression hoje; ranking e conquistas como módulos futuros. Réplicas stateless.")
+    ContainerDb(db, "Banco relacional", "PostgreSQL 16", "Tabelas students e level_up_events (cada módulo é dono das suas tabelas)")
+    Container(pgadmin, "pgAdmin", "pgAdmin 4", "Inspeção do banco (docker-compose)")
+  }
+
+  System_Ext(gha, "GitHub Actions", "CI: mvn verify (testes, ArchUnit, JaCoCo)")
+
+  Rel(aluno, spa, "Usa", "HTTPS")
+  Rel(spa, core, "Chama /students", "JSON/HTTP")
+  Rel(core, db, "Lê e escreve", "JPA/JDBC")
+  Rel(ops, pgadmin, "Consulta")
+  Rel(pgadmin, db, "Conecta", "SQL")
+  Rel(ops, gha, "push / Pull Request")
+```
+
+### C4 — Nível 3 (Component) do Core: esboço preparando o Desafio 2
+
+Os componentes **sólidos** já existem no código. **Ranking** e **Conquistas** são o desenho-alvo
+e só dependem de `StudentProgressionApi`, nunca de `progression.internal`.
+
+```mermaid
+C4Component
+  title Core API — Componentes (esboço para o Desafio 2)
+
+  Container(spa, "Front-end", "Vue 3")
+  ContainerDb(db, "Banco relacional", "PostgreSQL 16")
+
+  Container_Boundary(core, "Core API (Spring Boot)") {
+    Component(ctrl, "StudentController + ApiExceptionHandler", "Spring MVC (pacote web)", "REST /students; usa só progression.api")
+    Component(api, "StudentProgressionApi", "Interface Java (progression.api)", "Fachada pública do módulo: DTOs, Level, StudentNotFoundException")
+    Component(svc, "StudentService", "Spring @Service (progression.internal)", "Orquestra domínio e persistência")
+    Component(dom, "Student / LevelUpEvent", "POJO (progression.internal.domain)", "Regra de XP e níveis")
+    Component(repo, "StudentRepository + entities", "Spring Data JPA (progression.internal.persistence)", "students, level_up_events")
+    Component(rank, "Módulo ranking (futuro, RF01)", "ranking.api / ranking.internal", "Consulta ordenada por XP, paginada, com cache")
+    Component(conq, "Módulo conquistas (futuro, RF02)", "conquistas.api / conquistas.internal", "Reage a eventos de progressão (ApplicationEvent)")
+  }
+
+  Rel(spa, ctrl, "JSON/HTTP")
+  Rel(ctrl, api, "Chama")
+  Rel(svc, api, "Implementa")
+  Rel(svc, dom, "Usa")
+  Rel(svc, repo, "Usa")
+  Rel(repo, db, "JPA/JDBC")
+  Rel(rank, api, "Consulta alunos/XP (em memória)")
+  Rel(conq, api, "Escuta eventos de level-up (em memória)")
+```
+
+---
+
+## 12. Rastreabilidade
+
+| RF | RNF | ASR + RPC | Alternativa escolhida e trade-off | ADR | C4 | Evidência |
+|---|---|---|---|---|---|---|
+| RF01 Ranking (futuro; fonte de dados: `xp_total` em `StudentEntity`) | Desempenho, Escalabilidade | ASR2 + RPC3 (banco único) | B: índice, cache e réplicas *stateless*; extração só com gatilhos G1–G5 (§6) | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), Decisão item 5 | Component: "Módulo ranking (futuro)" → `StudentProgressionApi` | Módulo `progression` isolado (§7); dívida N+1 registrada no ADR |
+| RF02 Conquistas (futuro; base: `LevelUpEvent`) | Manutenibilidade | ASR1 + RPC1 (Spring) | B: módulo próprio reagindo a eventos em processo, sem rede | ADR-001, Decisão item 4 | Component: "Módulo conquistas (futuro)" | `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
+| RF-EVO Progressão (US1–US4, `/students`) | Manutenibilidade, Testabilidade | ASR1 + ASR3 + RPC2 (6 devs) + RPC3 (legado) | B: `progression.api` + `progression.internal`; contrato externo intacto | ADR-001, Decisão itens 1–4 | Container (inalterado) + Component (`StudentController` → `StudentProgressionApi` ← `StudentService`) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java), [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java), [CI](../../.github/workflows/ci.yml), [JaCoCo antes](evidencias/jacoco-antes.csv)/[depois](evidencias/jacoco-depois.csv) |
+| (todos) | Complexidade operacional | Restrição (RPC2 + RPC3) | B mantém 1 jar, 1 banco, 1 pipeline; C rejeitada | ADR-001, Alternativas | Container: nenhum container novo | [`ci.yml`](../../.github/workflows/ci.yml) único; `docker-compose.yml` inalterado |
+
+## 13. Índice de artefatos
+
+| Artefato | Caminho |
+|---|---|
+| ADR | [`docs/arquitetura/adr/ADR-001-estilo-arquitetural-core.md`](adr/ADR-001-estilo-arquitetural-core.md) |
+| Diagramas | Seção 7 (dependências antes/depois), seção 11 (C4 Container e Component) |
+| Fachada do módulo | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java) |
+| Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
+| Testes do módulo | [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) |
+| Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
+| Relatório de cobertura | Artifact `jacoco-report` de cada run do CI; local em `target/site/jacoco/index.html`; CSVs em [`evidencias/`](evidencias/) |
+| Prova de violação barrada | [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt) |

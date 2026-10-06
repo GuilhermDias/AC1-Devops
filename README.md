@@ -29,7 +29,8 @@ Tabela de faixas de XP:
 - Front-end: Vue 3 (via CDN, arquivo único sem build step), servido como recurso estático do
   próprio Spring Boot
 - Springdoc OpenAPI / Swagger UI
-- Testes: JUnit 5, AssertJ, Mockito, JaCoCo (0.8.13)
+- Testes: JUnit 5, AssertJ, Mockito, ArchUnit (1.4.1), JaCoCo (0.8.13)
+- CI: GitHub Actions (`.github/workflows/ci.yml`)
 
 ## Como rodar
 
@@ -72,12 +73,14 @@ em `target/site/jacoco/index.html` a cada execução.
 
 ```
 src/main/java/org/example/ac1devops/
-├── domain/      Student, Level, LevelUpEvent — regra de negocio pura (POJOs, sem framework)
-├── entity/      StudentEntity, LevelUpEventEntity — persistencia JPA (mapeiam o estado final)
-├── repository/  StudentRepository (Spring Data JPA)
-├── dto/         records de entrada/saida da API
-├── service/     StudentService — ponte entre entity (persistencia) e domain (regra de negocio)
-├── web/         StudentController + ApiExceptionHandler (REST)
+├── progression/                 modulo de progressao (Monolito Modular, ver ADR-001)
+│   ├── api/                     PUBLICO: StudentProgressionApi (fachada), DTOs, Level,
+│   │                            StudentNotFoundException
+│   └── internal/                PRIVADO ao modulo (verificado por ArchUnit)
+│       ├── StudentService       implementa StudentProgressionApi; ponte entity <-> domain
+│       ├── domain/              Student, LevelUpEvent — regra de negocio pura (POJOs)
+│       └── persistence/         StudentEntity, LevelUpEventEntity, StudentRepository (JPA)
+├── web/         StudentController + ApiExceptionHandler (REST) — usam so progression.api
 └── config/      OpenApiConfig (Swagger/OpenAPI)
 
 src/main/resources/static/
@@ -101,6 +104,12 @@ exclusivamente o domínio. O `StudentService` reconstrói um `Student` de domín
 total já salvo (um único `receiveXp` com o total acumulado recria a mesma sequência de eventos,
 já que a regra depende só do total de XP, não do caminho percorrido), aplica a nova operação, e
 persiste de volta só os eventos novos.
+
+**Decisões de arquitetura (Desafio 1):** drivers RF/RNF/ASR/RPC, alternativas, mini-lab de
+modularização, evidências de QA/CI e C4 em [`docs/arquitetura/README.md`](docs/arquitetura/README.md);
+decisão registrada no [ADR-001](docs/arquitetura/adr/ADR-001-estilo-arquitetural-core.md). O CI
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda `./mvnw verify` (testes, ArchUnit e
+piso de cobertura JaCoCo) em todo push e Pull Request.
 
 ## Endpoints
 
