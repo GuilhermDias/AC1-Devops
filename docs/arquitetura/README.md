@@ -1,0 +1,102 @@
+# Desafio 1 — Drivers e Evolução do Core
+
+Documento de arquitetura do Core da plataforma de Educação Continuada Gamificada (AC1, Grupo 10).
+Objetivo: decidir, com rastreabilidade, como o Core deve evoluir quando o MVP cresce de
+**1.000 para até 100.000 usuários**, com o **Ranking** crescendo mais que as demais
+funcionalidades e cursos, conquistas e recompensas continuando a evoluir.
+
+Cadeia de rastreabilidade seguida neste documento:
+
+```
+RF → RNF → ASR + RPC → alternativas/trade-offs → ADR → C4 → evidência (código, testes, CI)
+```
+
+---
+
+## 1. Requisitos funcionais (RF)
+
+Estado **real** do código da AC1 (branch `main`, commit `ecc44f7`):
+
+| RF | Situação no código | Classes / endpoints reais | Onde entra na arquitetura |
+|---|---|---|---|
+| **RF01 — Ranking** | **Não existe.** Não há endpoint, consulta ordenada nem tabela de ranking. | O dado de origem já existe: `xp_total` em `StudentEntity` (tabela `students`), exposto por `GET /students` (`StudentController.listStudents`). | Novo módulo `ranking` que **consome a API pública** do módulo `progression` (consulta de alunos ordenada por XP) e mantém seu próprio cache/projeção. Nunca acessa `StudentRepository`/`StudentEntity` diretamente. |
+| **RF02 — Conquistas** | **Não existe.** | O conceito mais próximo é o histórico de level-up: `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão (ex.: "subiu de nível", "acumulou X XP") publicados pelo módulo `progression`, em processo (Spring `ApplicationEvent`), sem chamada remota. |
+| **RF-EVO — Evolução das funcionalidades existentes** | Existe (US1–US4). | `POST /students`, `POST /students/{id}/xp`, `GET /students/{id}`, `GET /students` (`StudentController` → `StudentService` → `StudentRepository`); regra de XP/nível em `Student` e `Level`. | Vira o módulo `progression` (mini-lab, seção 7). Cursos e recompensas **também não existem** no código; entrariam como módulos irmãos (`cursos`, `recompensas`) seguindo o mesmo padrão `api/` + `internal/`. |
+
+## 2. Requisitos não funcionais (RNF) analisados
+
+| RNF | Análise no contexto da AC1 |
+|---|---|
+| **Manutenibilidade** | Hoje o código é organizado só por camada técnica (`web`, `service`, `repository`, `entity`, `dto`, `domain`); com Ranking, Conquistas, Cursos e Recompensas entrando, cada funcionalidade ficaria espalhada por todas as camadas e qualquer classe poderia importar qualquer outra (ex.: nada impede `web` de usar `StudentRepository`). |
+| **Desempenho** | 100 mil usuários é carga moderada; o risco real é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1) — um Ranking ingênuo em cima disso degradaria. Resolve-se com consulta ordenada + índice em `students.xp_total`, paginação e cache, sem mudar o estilo arquitetural. |
+| **Escalabilidade** | O Ranking é *read-heavy* e cresce mais que o resto; um monólito *stateless* escala horizontalmente (várias réplicas atrás de um balanceador) e o ranking pode ser servido de cache. Não há, hoje, evidência medida de que só o Ranking precise de escala independente. |
+| **Testabilidade** | Boa base: domínio em POJO e 100% de cobertura. Falta testar as **fronteiras**: nenhuma verificação automática impede um acoplamento indevido entre funcionalidades. |
+| **Complexidade operacional** | Hoje: 1 jar, 1 imagem Docker, 1 Postgres, 1 `docker-compose.yml`. Serviços separados trariam múltiplos pipelines, versionamento de contrato, rede entre serviços, observabilidade distribuída e consistência de dados entre bancos — custo alto para 6 desenvolvedores. |
+
+## 3. ASR — requisitos arquiteturalmente significativos (máx. 3)
+
+| ASR | RNF de origem | Como altera a arquitetura (uma frase) |
+|---|---|---|
+| **ASR1 — Evoluir funcionalidades com baixo acoplamento** | Manutenibilidade | Altera a **estrutura**: o Core passa a ser dividido em módulos por funcionalidade (`api/` público + `internal/` privado), e só a API de um módulo pode ser usada pelo restante do sistema. |
+| **ASR2 — Ranking responder bem sob até 100 mil usuários** | Desempenho + Escalabilidade | Altera **dados e implantação**: o Ranking ganha consulta indexada/paginada e cache próprios, e o Core é implantado como réplicas *stateless* que escalam horizontalmente juntas. |
+| **ASR3 — Fronteiras verificáveis automaticamente** | Testabilidade | Altera a **operação** (pipeline): regras de dependência entre módulos viram testes ArchUnit que rodam em todo commit e Pull Request, bloqueando o merge quando violadas. |
+
+Complexidade operacional **não** virou ASR por si só: ela entra como **restrição** na escolha
+(seção 5), não como requisito a maximizar.
+
+## 4. RPC — restrições de projeto e contexto
+
+| RPC | Restrição | Impacto na decisão |
+|---|---|---|
+| RPC1 | Core em **Java 21 / Spring Boot** (stack atual da AC1). | A modularização deve usar recursos da própria stack (pacotes, interfaces, eventos do Spring), sem nova linguagem/runtime. |
+| RPC2 | Equipe de **6 desenvolvedores**. | Um único time; não há times independentes que justifiquem deploys independentes (lei de Conway). |
+| RPC3 | **Banco relacional único** (PostgreSQL 16) e **legado da AC1** (tabelas `students` e `level_up_events`, endpoints `/students` consumidos pelo front-end Vue). | Contratos HTTP e schema existentes não podem quebrar; dividir o banco exigiria migração de dados e consistência eventual. |
+
+## 5. Decisão do Tech Lead
+
+**Quais RNFs viram ASRs?** Manutenibilidade (ASR1), Desempenho + Escalabilidade do Ranking (ASR2)
+e Testabilidade das fronteiras (ASR3). Complexidade operacional é tratada como restrição.
+
+**Há necessidade COMPROVADA de escala ou deploy independente?** **Não.** Não há medição de
+latência, de carga nem de gargalo do Ranking — o Ranking sequer existe ainda. 100 mil usuários é
+carga moderada para um monólito bem estruturado, com índices, paginação e cache, rodando em
+réplicas *stateless*. Também não há demanda de deploy independente: um único time de 6 pessoas
+publica um único artefato.
+
+**A complexidade distribuída é justificável?** **Não, agora.** Microsserviços trariam rede,
+contratos versionados, banco por serviço, consistência eventual e observabilidade distribuída
+para resolver um problema que ainda não foi medido. Com 6 devs e um banco relacional único, o
+custo superaria o benefício.
+
+**Decisão:** adotar o **Monólito Modular (alternativa B)**, com fronteiras por funcionalidade
+verificadas por ArchUnit no CI, e manter **gatilhos mensuráveis** (seção 6) para extrair o
+Ranking como serviço quando — e se — houver evidência. Registro formal no
+[ADR-001](adr/ADR-001-estilo-arquitetural-core.md).
+
+## 6. Alternativas e trade-offs
+
+| RNF | (A) Monólito em Camadas | (B) Monólito Modular | (C) Decomposição seletiva (Ranking como serviço) |
+|---|---|---|---|
+| Manutenibilidade | Baixa com o crescimento: funcionalidades espalhadas por camadas, acoplamento livre. | **Alta**: cada funcionalidade isolada atrás de uma API; mudanças locais ao módulo. | Alta para o Ranking, mas exige versionar contrato HTTP/eventos entre Core e serviço. |
+| Desempenho | Adequado com índice/cache. | Adequado com índice/cache (igual a A em runtime: chamadas em memória). | Ganho só se o Ranking for gargalo isolado; adiciona latência de rede e serialização. |
+| Escalabilidade | Horizontal, do sistema inteiro. | Horizontal, do sistema inteiro; o módulo `ranking` já fica pronto para extração. | Escala o Ranking de forma independente (único benefício real, ainda não necessário). |
+| Testabilidade | Testes unitários bons, mas sem verificação de fronteiras. | **Fronteiras testáveis** (ArchUnit) + testes por módulo. | Exige testes de contrato e ambientes integrados; mais difícil reproduzir localmente. |
+| Complexidade operacional | Mínima (1 jar, 1 banco). | **Mínima** (1 jar, 1 banco) — mesmo pipeline e mesmo deploy. | Alta: 2+ pipelines, 2+ deploys, rede, *service discovery*, observabilidade distribuída, dados duplicados ou banco compartilhado (antipadrão). |
+| **Prós** | Simples, já existe. | Baixo acoplamento com custo operacional de monólito; prepara extração futura. | Escala e deploy independentes do Ranking. |
+| **Contras** | Degrada a cada nova funcionalidade; não protege fronteiras. | Exige disciplina (garantida por ArchUnit no CI); escala ainda é do conjunto. | Custo alto e prematuro para 6 devs e banco único; resolve gargalo não comprovado. |
+
+### Gatilhos mensuráveis para extrair o Ranking como serviço (revisitar o ADR-001)
+
+A extração só deve ser reavaliada quando **pelo menos dois** gatilhos forem observados de forma
+sustentada (ex.: 2 semanas em produção), **depois** de aplicados índice, paginação e cache:
+
+| # | Gatilho | Limite sugerido |
+|---|---|---|
+| G1 | Latência do endpoint de ranking | p95 > 300 ms sob carga real, mesmo com cache e índice |
+| G2 | Carga desproporcional | Ranking > 60% das requisições ou da CPU do Core, forçando escalar o monólito inteiro só por ele |
+| G3 | Contenção no banco | Consultas de ranking > 40% do tempo de banco ou afetando a latência de `POST /students/{id}/xp` |
+| G4 | Frequência de deploy | Ranking precisa de deploy ≥ 2×/semana independente dos demais e > 30% dos releases ficam bloqueados por outros módulos |
+| G5 | Organização | Equipe cresce para ≥ 2 times com ownership separado do Ranking |
+
+Pré-condição para extrair barato: o módulo `ranking` já estar isolado atrás de sua API, com
+ArchUnit verde — exatamente o que a alternativa B garante.
