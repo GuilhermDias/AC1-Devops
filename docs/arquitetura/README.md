@@ -208,3 +208,53 @@ graph LR
 | Dependências de `web` em classe concreta de implementação | 1 (`StudentService`) | 0 |
 | Dependências de fora do módulo para `internal` | — (não havia fronteira; `web` podia importar `entity`/`repository`) | 0 (garantido por ArchUnit) |
 | Ciclos entre pacotes | 0 | 0 |
+
+---
+
+## 8. Evidência de QA
+
+### Testes que protegem a decisão
+
+| Teste | Tipo | O que garante |
+|---|---|---|
+| [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) | ArchUnit (6 regras) | `ninguemForaDoModuloAcessaInternal`, `apiDoModuloNaoDependeDoInternal`, `camadasRespeitadas` (Web → ProgressionApi ← ProgressionInternal; ninguém acessa Web/Config/Internal), `dominioSemFramework` (domínio sem Spring/JPA), `controllersFicamNaCamadaWeb`, `semCiclosEntrePacotes`. |
+| [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java) | Unitário (JUnit 5 + Mockito) | 10 cenários do service do módulo (8 existentes + 2 novos: reconstrução a partir do estado persistido gerando só os eventos novos, e XP inválido mantendo o estado). |
+| [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) | Integração (`@SpringBootTest`, HTTP real + H2) | Fluxo completo `POST /students` → `POST /students/{id}/xp` → `GET /students/{id}` → `GET /students` e o `404` com mensagem: prova que o contrato externo não mudou. |
+| `StudentControllerTest`, `StudentRepositoryTest`, `StudentTest`, `LevelTest`, `SwaggerIntegrationTest`, `Ac1DevOpsApplicationTests` | Já existentes | Continuam passando sem mudança de asserções. |
+
+**Prova de que a regra funciona:** uma classe temporária em `web` com um campo do tipo
+`progression.internal.persistence.StudentRepository` fez o build **falhar** em 2 regras
+(`ninguemForaDoModuloAcessaInternal` e `camadasRespeitadas`); a classe foi removida em seguida.
+Saída registrada em [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt).
+
+### Resultado dos testes
+
+| | ANTES (`main`, `ecc44f7`) | DEPOIS (esta branch) |
+|---|---|---|
+| Testes executados | 26 | 36 |
+| Falhas / erros | 0 / 0 | 0 / 0 |
+| Regras de arquitetura verificadas | 0 | 6 (ArchUnit) |
+| Testes de integração HTTP do módulo (sem mock) | 0 | 2 |
+| Piso de cobertura no build | não havia | `jacoco:check` — linhas ≥ 90% e branches ≥ 90% (falha o `verify`) |
+
+### Cobertura JaCoCo do módulo (classes da funcionalidade de progressão)
+
+| Classe (ANTES → DEPOIS) | Instruções | Linhas | Branches |
+|---|---|---|---|
+| `service.StudentService` → `progression.internal.StudentService` | 100% → 100% (155) | 100% → 100% (29) | 100% → 100% (4/4) |
+| `domain.Student` → `progression.internal.domain.Student` | 100% → 100% (74) | 100% → 100% (22) | 100% → 100% (4/4) |
+| `domain.LevelUpEvent` → `progression.internal.domain.LevelUpEvent` | 100% → 100% (15) | 100% → 100% (6) | — |
+| `entity.StudentEntity` / `LevelUpEventEntity` → `progression.internal.persistence.*` | 100% → 100% (85) | 100% → 100% (32) | — |
+| `domain.Level` → `progression.api.Level` | 100% → 100% (68) | 100% → 100% (14) | 100% → 100% (4/4) |
+| DTOs + `StudentNotFoundException` → `progression.api.*` | 100% → 100% (47) | 100% → 100% (6) | — |
+| **Total do módulo** | **100% → 100% (444/444)** | **100% → 100% (109/109)** | **100% → 100% (12/12)** |
+
+A cobertura de linhas já era 100% antes (herança do ciclo RED→GREEN→BLUE da AC1) e foi
+**mantida** após a refatoração. O ganho de qualidade não está no percentual, mas em **o que** é
+verificado: fronteiras do módulo (ArchUnit), fluxo HTTP real sem mocks e um piso de cobertura
+que impede regressão. `StudentProgressionApi` é interface e não gera instruções no relatório.
+
+Fontes brutas: [`evidencias/jacoco-antes.csv`](evidencias/jacoco-antes.csv) e
+[`evidencias/jacoco-depois.csv`](evidencias/jacoco-depois.csv). Relatório HTML gerado em
+`target/site/jacoco/index.html` a cada `./mvnw verify` e publicado como artifact pelo CI
+(seção 9).

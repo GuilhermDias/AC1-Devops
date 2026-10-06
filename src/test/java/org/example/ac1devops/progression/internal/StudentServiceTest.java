@@ -3,15 +3,18 @@ package org.example.ac1devops.progression.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
 import org.example.ac1devops.progression.api.CreateStudentRequestDTO;
 import org.example.ac1devops.progression.api.Level;
+import org.example.ac1devops.progression.api.LevelUpEventDTO;
 import org.example.ac1devops.progression.api.ReceiveXpRequestDTO;
 import org.example.ac1devops.progression.api.StudentNotFoundException;
 import org.example.ac1devops.progression.api.StudentResponseDTO;
+import org.example.ac1devops.progression.internal.persistence.LevelUpEventEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -122,5 +125,38 @@ class StudentServiceTest {
         List<StudentResponseDTO> response = studentService.listStudents();
 
         assertThat(response).hasSize(2);
+    }
+
+    @Test
+    void deveReconstruirEstadoPersistidoEPersistirSoOsEventosNovos() {
+        StudentEntity entity = new StudentEntity("Aluno Persistido");
+        entity.setXpTotal(150);
+        entity.setLevel(Level.PRATA);
+        entity.addLevelUpEvent(new LevelUpEventEntity(Level.BRONZE, Level.PRATA));
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE_CONCLUIDA", 200));
+
+        assertThat(response.xpTotal()).isEqualTo(350);
+        assertThat(response.level()).isEqualTo(Level.OURO);
+        assertThat(response.levelUpEvents()).containsExactly(
+                new LevelUpEventDTO(Level.BRONZE, Level.PRATA),
+                new LevelUpEventDTO(Level.PRATA, Level.OURO));
+    }
+
+    @Test
+    void deveIgnorarXpInvalidoMantendoEstadoDoAluno() {
+        StudentEntity entity = new StudentEntity("Aluno XP Invalido");
+        entity.setXpTotal(50);
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("MOTIVO_INVALIDO", -10));
+
+        assertThat(response.xpTotal()).isEqualTo(50);
+        assertThat(response.level()).isEqualTo(Level.BRONZE);
+        assertThat(response.levelUpEvents()).isEmpty();
+        verify(studentRepository).save(entity);
     }
 }

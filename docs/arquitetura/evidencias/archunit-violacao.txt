@@ -1,0 +1,12 @@
+# Prova de que o ArchUnit barra violacoes da fronteira do modulo progression
+# Classe TEMPORARIA criada (e removida em seguida) em src/main/java/org/example/ac1devops/web/ViolacaoTemporaria.java:
+#   import org.example.ac1devops.progression.internal.persistence.StudentRepository;
+#   class ViolacaoTemporaria { StudentRepository atalhoProibido; }
+# Comando: ./mvnw -B test -Dtest=ModularArchitectureTest
+
+[ERROR] Tests run: 6, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 3.361 s <<< FAILURE! -- in org.example.ac1devops.architecture.ModularArchitectureTest
+Field <org.example.ac1devops.web.ViolacaoTemporaria.atalhoProibido> has type <org.example.ac1devops.progression.internal.persistence.StudentRepository> in (ViolacaoTemporaria.java:0)
+[ERROR]   ModularArchitectureTest.camadasRespeitadas Architecture Violation [Priority: MEDIUM] - Rule 'Layered architecture considering only dependencies in layers, consisting of
+[ERROR]   ModularArchitectureTest.ninguemForaDoModuloAcessaInternal Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside outside of package 'org.example.ac1devops.progression..' should depend on classes that reside in a package 'org.example.ac1devops.progression.internal..', because o restante do sistema deve usar apenas a API publica do modulo progression' was violated (1 times):
+[ERROR] Tests run: 6, Failures: 2, Errors: 0, Skipped: 0
+[INFO] BUILD FAILURE
