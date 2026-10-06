@@ -1,5 +1,6 @@
-package org.example.ac1devops.domain;
+package org.example.ac1devops.progression.internal.domain;
 
+import org.example.ac1devops.progression.api.Level;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

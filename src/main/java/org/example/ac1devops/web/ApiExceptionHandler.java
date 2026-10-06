@@ -1,7 +1,7 @@
 package org.example.ac1devops.web;
 
 import java.util.Map;
-import org.example.ac1devops.service.StudentNotFoundException;
+import org.example.ac1devops.progression.api.StudentNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;

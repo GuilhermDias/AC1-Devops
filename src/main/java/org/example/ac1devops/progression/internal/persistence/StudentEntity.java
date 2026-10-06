@@ -1,4 +1,4 @@
-package org.example.ac1devops.entity;
+package org.example.ac1devops.progression.internal.persistence;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -12,12 +12,12 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.ArrayList;
 import java.util.List;
-import org.example.ac1devops.domain.Level;
+import org.example.ac1devops.progression.api.Level;
 
 /**
- * Representacao JPA de um {@link org.example.ac1devops.domain.Student}. Guarda o estado final
+ * Representacao JPA de um {@link org.example.ac1devops.progression.internal.domain.Student}. Guarda o estado final
  * (xpTotal, level, historico) calculado pelo dominio; a regra de progressao de nivel continua
- * vivendo exclusivamente em {@link org.example.ac1devops.domain.Student}.
+ * vivendo exclusivamente em {@link org.example.ac1devops.progression.internal.domain.Student}.
  *
  * <p>Nomes de tabela e colunas sao explicitos para que o schema gerado no Postgres nao dependa
  * da estrategia de naming padrao do Hibernate.

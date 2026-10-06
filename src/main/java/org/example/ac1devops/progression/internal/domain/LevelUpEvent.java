@@ -1,4 +1,6 @@
-package org.example.ac1devops.domain;
+package org.example.ac1devops.progression.internal.domain;
+
+import org.example.ac1devops.progression.api.Level;
 
 /**
  * Evento registrado no historico de evolucao do aluno a cada transicao de nivel.

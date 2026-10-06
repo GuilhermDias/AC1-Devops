@@ -1,4 +1,4 @@
-package org.example.ac1devops.domain;
+package org.example.ac1devops.progression.api;
 
 /**
  * Niveis de gamificacao e as faixas de XP total necessarias para cada um.

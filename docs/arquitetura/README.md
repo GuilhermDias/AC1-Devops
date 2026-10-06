@@ -100,3 +100,111 @@ sustentada (ex.: 2 semanas em produção), **depois** de aplicados índice, pagi
 
 Pré-condição para extrair barato: o módulo `ranking` já estar isolado atrás de sua API, com
 ArchUnit verde — exatamente o que a alternativa B garante.
+
+---
+
+## 7. Mini-lab — modularização do módulo `progression`
+
+**Funcionalidade escolhida:** como Ranking e Conquistas ainda não existem (seção 1), foi
+modularizada a funcionalidade real mais próxima: a **progressão do aluno (XP e níveis, US1–US4)**,
+que é exatamente a fonte de dados do futuro Ranking e dos eventos que alimentarão Conquistas.
+
+**Comportamento externo inalterado:** mesmos endpoints (`/students`), mesmos DTOs/JSON, mesmas
+tabelas (`students`, `level_up_events` — nomes explícitos em `@Table`/`@Column`). Os 26 testes
+existentes continuaram passando sem alteração de asserções; só mudaram `package`/`import` e o
+`StudentControllerTest` passou a mockar a interface `StudentProgressionApi` no lugar da classe
+concreta `StudentService`.
+
+### Estrutura
+
+ANTES (organização só por camada técnica):
+
+```
+org.example.ac1devops
+├── web/         StudentController, ApiExceptionHandler
+├── service/     StudentService, StudentNotFoundException
+├── repository/  StudentRepository
+├── entity/      StudentEntity, LevelUpEventEntity
+├── dto/         CreateStudentRequestDTO, ReceiveXpRequestDTO, StudentResponseDTO, LevelUpEventDTO
+├── domain/      Student, Level, LevelUpEvent
+└── config/      OpenApiConfig
+```
+
+DEPOIS (módulo por funcionalidade, com API pública e implementação privada):
+
+```
+org.example.ac1devops
+├── web/                         StudentController, ApiExceptionHandler  → usam só progression.api
+├── config/                      OpenApiConfig
+└── progression/                 MÓDULO de progressão (alunos, XP, níveis)
+    ├── api/                     PÚBLICO: StudentProgressionApi (fachada), DTOs, Level,
+    │                            StudentNotFoundException
+    └── internal/                PRIVADO ao módulo
+        ├── StudentService       implementa StudentProgressionApi
+        ├── domain/              Student, LevelUpEvent (POJOs, regra de XP/nível)
+        └── persistence/         StudentEntity, LevelUpEventEntity, StudentRepository
+```
+
+`Level` ficou em `api/` porque faz parte do contrato publicado (é o tipo do campo `level` e dos
+eventos nos DTOs de resposta).
+
+### Dependências entre pacotes (imports `org.example.ac1devops.*`)
+
+Levantamento feito por script sobre `src/main/java` (cada linha = pacote de origem → pacote
+importado, com a quantidade de imports):
+
+| ANTES | | DEPOIS | |
+|---|---|---|---|
+| `web → service` | 2 | `web → progression.api` | 5 |
+| `web → dto` | 3 | `progression.internal → progression.api` | 7 |
+| `service → domain` | 3 | `progression.internal → progression.internal.domain` | 2 |
+| `service → dto` | 4 | `progression.internal → progression.internal.persistence` | 3 |
+| `service → entity` | 2 | `progression.internal.domain → progression.api` | 2 |
+| `service → repository` | 1 | `progression.internal.persistence → progression.api` | 2 |
+| `repository → entity` | 1 | | |
+| `entity → domain` | 2 | | |
+| `dto → domain` | 2 | | |
+
+```mermaid
+%% ANTES
+graph LR
+  web --> service
+  web --> dto
+  service --> domain
+  service --> dto
+  service --> entity
+  service --> repository
+  repository --> entity
+  entity --> domain
+  dto --> domain
+```
+
+```mermaid
+%% DEPOIS
+graph LR
+  web --> api
+  subgraph progression["módulo progression"]
+    api["progression.api"]
+    subgraph internal["internal (privado)"]
+      svc["progression.internal"]
+      dom["internal.domain"]
+      per["internal.persistence"]
+    end
+  end
+  svc --> api
+  svc --> dom
+  svc --> per
+  dom --> api
+  per --> api
+```
+
+### Contagem de dependências
+
+| Métrica | ANTES | DEPOIS |
+|---|---|---|
+| Arestas entre pacotes | 9 | 6 |
+| Imports entre pacotes | 20 | 21 (+1: a interface `StudentProgressionApi`) |
+| Pacotes que `web` conhece | 2 (`service`, `dto`) | 1 (`progression.api`) |
+| Dependências de `web` em classe concreta de implementação | 1 (`StudentService`) | 0 |
+| Dependências de fora do módulo para `internal` | — (não havia fronteira; `web` podia importar `entity`/`repository`) | 0 (garantido por ArchUnit) |
+| Ciclos entre pacotes | 0 | 0 |

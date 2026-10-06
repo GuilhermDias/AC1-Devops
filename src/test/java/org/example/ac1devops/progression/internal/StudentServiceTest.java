@@ -1,4 +1,4 @@
-package org.example.ac1devops.service;
+package org.example.ac1devops.progression.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -7,12 +7,13 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Optional;
-import org.example.ac1devops.domain.Level;
-import org.example.ac1devops.dto.CreateStudentRequestDTO;
-import org.example.ac1devops.dto.ReceiveXpRequestDTO;
-import org.example.ac1devops.dto.StudentResponseDTO;
-import org.example.ac1devops.entity.StudentEntity;
-import org.example.ac1devops.repository.StudentRepository;
+import org.example.ac1devops.progression.api.CreateStudentRequestDTO;
+import org.example.ac1devops.progression.api.Level;
+import org.example.ac1devops.progression.api.ReceiveXpRequestDTO;
+import org.example.ac1devops.progression.api.StudentNotFoundException;
+import org.example.ac1devops.progression.api.StudentResponseDTO;
+import org.example.ac1devops.progression.internal.persistence.StudentEntity;
+import org.example.ac1devops.progression.internal.persistence.StudentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -1,7 +1,6 @@
-package org.example.ac1devops.dto;
+package org.example.ac1devops.progression.api;
 
 import java.util.List;
-import org.example.ac1devops.domain.Level;
 
 public record StudentResponseDTO(
         Long id,

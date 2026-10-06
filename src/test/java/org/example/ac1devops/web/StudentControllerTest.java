@@ -6,13 +6,11 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.assertj.MockMvcTester.create;
 
 import java.util.List;
-import org.example.ac1devops.domain.Level;
-import org.example.ac1devops.dto.CreateStudentRequestDTO;
-import org.example.ac1devops.dto.LevelUpEventDTO;
-import org.example.ac1devops.dto.ReceiveXpRequestDTO;
-import org.example.ac1devops.dto.StudentResponseDTO;
-import org.example.ac1devops.service.StudentNotFoundException;
-import org.example.ac1devops.service.StudentService;
+import org.example.ac1devops.progression.api.Level;
+import org.example.ac1devops.progression.api.LevelUpEventDTO;
+import org.example.ac1devops.progression.api.StudentNotFoundException;
+import org.example.ac1devops.progression.api.StudentProgressionApi;
+import org.example.ac1devops.progression.api.StudentResponseDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +27,7 @@ class StudentControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private StudentService studentService;
+    private StudentProgressionApi studentProgression;
 
     private MockMvcTester mvc;
 
@@ -40,7 +38,7 @@ class StudentControllerTest {
 
     @Test
     void devePostarNovoAlunoERetornar201() {
-        when(studentService.createStudent(any())).thenReturn(
+        when(studentProgression.createStudent(any())).thenReturn(
                 new StudentResponseDTO(1L, "Aluno Teste", 0, Level.BRONZE, List.of()));
 
         mvc.post().uri("/students")
@@ -56,7 +54,7 @@ class StudentControllerTest {
 
     @Test
     void deveReceberXpERetornarAlunoAtualizado() {
-        when(studentService.receiveXp(eq(1L), any())).thenReturn(
+        when(studentProgression.receiveXp(eq(1L), any())).thenReturn(
                 new StudentResponseDTO(1L, "Aluno US1", 110, Level.PRATA,
                         List.of(new LevelUpEventDTO(Level.BRONZE, Level.PRATA))));
 
@@ -73,7 +71,7 @@ class StudentControllerTest {
 
     @Test
     void deveRetornar404AoReceberXpParaAlunoInexistente() {
-        when(studentService.receiveXp(eq(99L), any())).thenThrow(new StudentNotFoundException(99L));
+        when(studentProgression.receiveXp(eq(99L), any())).thenThrow(new StudentNotFoundException(99L));
 
         mvc.post().uri("/students/{id}/xp", 99L)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -85,7 +83,7 @@ class StudentControllerTest {
 
     @Test
     void deveConsultarAlunoPorId() {
-        when(studentService.getStudent(1L)).thenReturn(
+        when(studentProgression.getStudent(1L)).thenReturn(
                 new StudentResponseDTO(1L, "Aluno Consulta", 50, Level.BRONZE, List.of()));
 
         mvc.get().uri("/students/{id}", 1L)
@@ -99,7 +97,7 @@ class StudentControllerTest {
 
     @Test
     void deveRetornar404AoConsultarAlunoInexistente() {
-        when(studentService.getStudent(99L)).thenThrow(new StudentNotFoundException(99L));
+        when(studentProgression.getStudent(99L)).thenThrow(new StudentNotFoundException(99L));
 
         mvc.get().uri("/students/{id}", 99L)
                 .exchange()
@@ -109,7 +107,7 @@ class StudentControllerTest {
 
     @Test
     void deveListarTodosOsAlunos() {
-        when(studentService.listStudents()).thenReturn(List.of(
+        when(studentProgression.listStudents()).thenReturn(List.of(
                 new StudentResponseDTO(1L, "Aluno 1", 0, Level.BRONZE, List.of()),
                 new StudentResponseDTO(2L, "Aluno 2", 0, Level.BRONZE, List.of())));
 

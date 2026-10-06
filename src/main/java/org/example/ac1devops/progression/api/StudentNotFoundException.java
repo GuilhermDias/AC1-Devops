@@ -1,4 +1,4 @@
-package org.example.ac1devops.service;
+package org.example.ac1devops.progression.api;
 
 public class StudentNotFoundException extends RuntimeException {
 

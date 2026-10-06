@@ -1,25 +1,27 @@
-package org.example.ac1devops.service;
+package org.example.ac1devops.progression.internal;
 
 import java.util.List;
-import org.example.ac1devops.domain.Level;
-import org.example.ac1devops.domain.LevelUpEvent;
-import org.example.ac1devops.domain.Student;
-import org.example.ac1devops.dto.CreateStudentRequestDTO;
-import org.example.ac1devops.dto.LevelUpEventDTO;
-import org.example.ac1devops.dto.ReceiveXpRequestDTO;
-import org.example.ac1devops.dto.StudentResponseDTO;
-import org.example.ac1devops.entity.LevelUpEventEntity;
-import org.example.ac1devops.entity.StudentEntity;
-import org.example.ac1devops.repository.StudentRepository;
+import org.example.ac1devops.progression.api.CreateStudentRequestDTO;
+import org.example.ac1devops.progression.api.Level;
+import org.example.ac1devops.progression.api.LevelUpEventDTO;
+import org.example.ac1devops.progression.api.ReceiveXpRequestDTO;
+import org.example.ac1devops.progression.api.StudentNotFoundException;
+import org.example.ac1devops.progression.api.StudentProgressionApi;
+import org.example.ac1devops.progression.api.StudentResponseDTO;
+import org.example.ac1devops.progression.internal.domain.LevelUpEvent;
+import org.example.ac1devops.progression.internal.domain.Student;
+import org.example.ac1devops.progression.internal.persistence.LevelUpEventEntity;
+import org.example.ac1devops.progression.internal.persistence.StudentEntity;
+import org.example.ac1devops.progression.internal.persistence.StudentRepository;
 import org.springframework.stereotype.Service;
 
 /**
- * Ponte entre {@link StudentEntity} (persistencia) e {@link Student} (regra de negocio de
- * XP/nivel, ja testada a 100% no dominio). A entity guarda o estado final; quem recalcula
- * transicoes de nivel continua sendo o dominio.
+ * Implementacao interna de {@link StudentProgressionApi}: ponte entre {@link StudentEntity}
+ * (persistencia) e {@link Student} (regra de negocio de XP/nivel, ja testada a 100% no dominio).
+ * A entity guarda o estado final; quem recalcula transicoes de nivel continua sendo o dominio.
  */
 @Service
-public class StudentService {
+public class StudentService implements StudentProgressionApi {
 
     private final StudentRepository studentRepository;
 
@@ -27,11 +29,13 @@ public class StudentService {
         this.studentRepository = studentRepository;
     }
 
+    @Override
     public StudentResponseDTO createStudent(CreateStudentRequestDTO request) {
         StudentEntity entity = studentRepository.save(new StudentEntity(request.name()));
         return toResponseDTO(entity);
     }
 
+    @Override
     public StudentResponseDTO receiveXp(Long id, ReceiveXpRequestDTO request) {
         StudentEntity entity = findEntityOrThrow(id);
 
@@ -50,10 +54,12 @@ public class StudentService {
         return toResponseDTO(studentRepository.save(entity));
     }
 
+    @Override
     public StudentResponseDTO getStudent(Long id) {
         return toResponseDTO(findEntityOrThrow(id));
     }
 
+    @Override
     public List<StudentResponseDTO> listStudents() {
         return studentRepository.findAll().stream().map(this::toResponseDTO).toList();
     }

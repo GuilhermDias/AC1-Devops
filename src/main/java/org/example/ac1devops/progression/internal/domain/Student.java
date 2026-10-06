@@ -1,7 +1,8 @@
-package org.example.ac1devops.domain;
+package org.example.ac1devops.progression.internal.domain;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.example.ac1devops.progression.api.Level;
 
 /**
  * Aluno da plataforma de Educacao Continuada Gamificada.

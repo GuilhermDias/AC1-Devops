@@ -1,4 +1,4 @@
-package org.example.ac1devops.domain;
+package org.example.ac1devops.progression.api;
 
 import org.junit.jupiter.api.Test;
 

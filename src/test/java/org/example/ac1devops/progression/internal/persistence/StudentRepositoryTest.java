@@ -1,11 +1,9 @@
-package org.example.ac1devops.repository;
+package org.example.ac1devops.progression.internal.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
-import org.example.ac1devops.domain.Level;
-import org.example.ac1devops.entity.LevelUpEventEntity;
-import org.example.ac1devops.entity.StudentEntity;
+import org.example.ac1devops.progression.api.Level;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;

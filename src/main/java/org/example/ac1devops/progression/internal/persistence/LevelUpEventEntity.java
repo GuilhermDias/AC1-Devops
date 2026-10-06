@@ -1,4 +1,4 @@
-package org.example.ac1devops.entity;
+package org.example.ac1devops.progression.internal.persistence;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,10 +11,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.example.ac1devops.domain.Level;
+import org.example.ac1devops.progression.api.Level;
 
 /**
- * Representacao JPA de um {@link org.example.ac1devops.domain.LevelUpEvent} pertencente a um
+ * Representacao JPA de um {@link org.example.ac1devops.progression.internal.domain.LevelUpEvent} pertencente a um
  * {@link StudentEntity}.
  */
 @Entity

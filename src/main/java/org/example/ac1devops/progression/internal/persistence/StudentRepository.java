@@ -1,6 +1,5 @@
-package org.example.ac1devops.repository;
+package org.example.ac1devops.progression.internal.persistence;
 
-import org.example.ac1devops.entity.StudentEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface StudentRepository extends JpaRepository<StudentEntity, Long> {
