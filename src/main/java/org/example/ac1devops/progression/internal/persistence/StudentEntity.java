@@ -8,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.ArrayList;
@@ -21,9 +22,13 @@ import org.example.ac1devops.progression.api.Level;
  *
  * <p>Nomes de tabela e colunas sao explicitos para que o schema gerado no Postgres nao dependa
  * da estrategia de naming padrao do Hibernate.
+ *
+ * <p>O indice {@code idx_students_xp_total} segue a mesma ordem da consulta do ranking
+ * ({@code xp_total DESC, id ASC}), entao o banco devolve uma pagina sem ordenar a tabela inteira.
  */
 @Entity
-@Table(name = "students")
+@Table(name = "students",
+        indexes = @Index(name = "idx_students_xp_total", columnList = "xp_total DESC, id ASC"))
 public class StudentEntity {
 
     @Id

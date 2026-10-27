@@ -25,7 +25,7 @@ class ModularArchitectureTest {
 
     private static final String ROOT = "org.example.ac1devops";
 
-    static final List<String> MODULES = List.of("progression");
+    static final List<String> MODULES = List.of("progression", "ranking");
 
     private static String module(String name) {
         return ROOT + "." + name + "..";
@@ -82,11 +82,22 @@ class ModularArchitectureTest {
             .layer("Web").definedBy(ROOT + ".web..")
             .layer("ProgressionApi").definedBy(api("progression"))
             .layer("ProgressionInternal").definedBy(internal("progression"))
+            .layer("RankingApi").definedBy(api("ranking"))
+            .layer("RankingInternal").definedBy(internal("ranking"))
             .layer("Config").definedBy(ROOT + ".config..")
             .whereLayer("Web").mayNotBeAccessedByAnyLayer()
             .whereLayer("Config").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionInternal").mayNotBeAccessedByAnyLayer()
-            .whereLayer("ProgressionApi").mayOnlyBeAccessedByLayers("Web", "ProgressionInternal");
+            .whereLayer("RankingInternal").mayNotBeAccessedByAnyLayer()
+            .whereLayer("ProgressionApi").mayOnlyBeAccessedByLayers(
+                    "Web", "ProgressionInternal", "RankingApi", "RankingInternal")
+            .whereLayer("RankingApi").mayOnlyBeAccessedByLayers("Web", "RankingInternal");
+
+    @ArchTest
+    static final ArchRule progressionNaoConheceRanking = noClasses()
+            .that().resideInAPackage(module("progression"))
+            .should().dependOnClassesThat().resideInAPackage(module("ranking"))
+            .because("ranking depende de progression (pela api e por eventos), nunca o contrario");
 
     @ArchTest
     static final ArchRule dominioSemFramework = noClasses()

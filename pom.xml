@@ -47,6 +47,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
+        <!-- Spring Cache: top N do ranking em cache, invalidado quando a pontuacao muda. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
 
         <!-- Banco de producao/execucao: Postgres em container (perfil 'postgres', o padrao). -->
         <dependency>

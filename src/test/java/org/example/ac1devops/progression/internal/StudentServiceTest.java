@@ -3,6 +3,7 @@ package org.example.ac1devops.progression.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -14,6 +15,8 @@ import org.example.ac1devops.progression.api.LevelUpEventDTO;
 import org.example.ac1devops.progression.api.ReceiveXpRequestDTO;
 import org.example.ac1devops.progression.api.StudentNotFoundException;
 import org.example.ac1devops.progression.api.StudentResponseDTO;
+import org.example.ac1devops.progression.api.StudentScoreChangedEvent;
+import org.example.ac1devops.progression.api.StudentScoreDTO;
 import org.example.ac1devops.progression.internal.persistence.LevelUpEventEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentRepository;
@@ -22,6 +25,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 
 @ExtendWith(MockitoExtension.class)
 class StudentServiceTest {
@@ -29,11 +37,14 @@ class StudentServiceTest {
     @Mock
     private StudentRepository studentRepository;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     private StudentService studentService;
 
     @BeforeEach
     void setUp() {
-        studentService = new StudentService(studentRepository);
+        studentService = new StudentService(studentRepository, eventPublisher);
     }
 
     @Test
@@ -158,5 +169,60 @@ class StudentServiceTest {
         assertThat(response.level()).isEqualTo(Level.BRONZE);
         assertThat(response.levelUpEvents()).isEmpty();
         verify(studentRepository).save(entity);
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
+    }
+
+    @Test
+    void devePublicarEventoDePontuacaoAoCriarAluno() {
+        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        studentService.createStudent(new CreateStudentRequestDTO("Aluno Novo"));
+
+        verify(eventPublisher).publishEvent(new StudentScoreChangedEvent(null, 0));
+    }
+
+    @Test
+    void devePublicarEventoDePontuacaoQuandoXpMuda() {
+        StudentEntity entity = new StudentEntity("Aluno Evento");
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE_CONCLUIDA", 40));
+
+        verify(eventPublisher).publishEvent(new StudentScoreChangedEvent(null, 40));
+    }
+
+    @Test
+    void deveListarPontuacaoPaginadaIgnorandoOrdenacaoRecebida() {
+        Page<StudentScoreDTO> page = new PageImpl<>(List.of(new StudentScoreDTO(1L, "Aluno 1", 500, Level.OURO)));
+        when(studentRepository.findScoresOrderedByXp(PageRequest.of(2, 10))).thenReturn(page);
+
+        Page<StudentScoreDTO> response = studentService.listByScore(PageRequest.of(2, 10, Sort.by("name")));
+
+        assertThat(response).isSameAs(page);
+    }
+
+    @Test
+    void deveRetornarPontuacaoDoAluno() {
+        StudentScoreDTO score = new StudentScoreDTO(1L, "Aluno 1", 500, Level.OURO);
+        when(studentRepository.findScoreById(1L)).thenReturn(Optional.of(score));
+
+        assertThat(studentService.getScore(1L)).isEqualTo(score);
+    }
+
+    @Test
+    void deveLancarExcecaoAoConsultarPontuacaoDeAlunoInexistente() {
+        when(studentRepository.findScoreById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> studentService.getScore(99L))
+                .isInstanceOf(StudentNotFoundException.class);
+    }
+
+    @Test
+    void deveContarAlunosAFrente() {
+        when(studentRepository.countAhead(500, 7L)).thenReturn(3L);
+
+        assertThat(studentService.countStudentsAhead(new StudentScoreDTO(7L, "Aluno 7", 500, Level.OURO)))
+                .isEqualTo(3L);
     }
 }
