@@ -105,8 +105,9 @@ total já salvo (um único `receiveXp` com o total acumulado recria a mesma sequ
 já que a regra depende só do total de XP, não do caminho percorrido), aplica a nova operação, e
 persiste de volta só os eventos novos.
 
-**Decisões de arquitetura (Desafio 1):** drivers RF/RNF/ASR/RPC, alternativas, mini-lab de
-modularização, evidências de QA/CI e C4 em [`docs/arquitetura/README.md`](docs/arquitetura/README.md);
+**Arquitetura — [Estudo de Caso: Educação Continuada Gamificada](docs/arquitetura/README.md)**
+(Desafio 1 + AC2 ExB1): RF, RNF, ASR, RPC e trade-offs, C4 (Contexto, Container e Component),
+rastreabilidade e evidências do mini-lab de modularização e de QA/CI;
 decisão registrada no [ADR-001](docs/arquitetura/adr/ADR-001-estilo-arquitetural-core.md). O CI
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda `./mvnw verify` (testes, ArchUnit e
 piso de cobertura JaCoCo) em todo push e Pull Request.

@@ -3,7 +3,7 @@
 | Campo | Valor |
 |---|---|
 | **Status** | Aceito |
-| **Data** | 2026-10-06 |
+| **Data** | 2026-10-27 (revisão AC2 ExB1; versão original 2026-10-06) |
 | **Decisor** | Tech Lead do Grupo 10 (AC1) |
 | **Documento de apoio** | [`docs/arquitetura/README.md`](../README.md) |
 
@@ -17,17 +17,18 @@ funcionalidade real — progressão do aluno por XP e níveis (US1–US4, endpoi
 persistida em PostgreSQL (`students`, `level_up_events`). Ranking e Conquistas ainda não existem
 no código. Não há medição de latência, carga ou gargalo.
 
-A equipe precisa escolher entre (A) Monólito em Camadas, (B) Monólito Modular e (C) decomposição
-seletiva, extraindo o Ranking como serviço.
+A equipe precisa escolher entre (A) Monólito em Camadas, (B) Monólito Modular e (C) decomposição em
+serviços, começando por extrair o Ranking como serviço.
 
 ## ASRs e RPCs
 
-**ASRs** (detalhe na seção 3 do README):
+**ASRs** (detalhe na §3 do README):
 
 - **ASR1 — Evoluir funcionalidades com baixo acoplamento** (manutenibilidade). Impacta a
   **estrutura**, com módulos por funcionalidade (`api/` público + `internal/` privado).
-- **ASR2 — Ranking responder bem com até 100 mil usuários** (desempenho e escalabilidade).
-  Impacta **dados e implantação**: consulta indexada e paginada, cache e réplicas *stateless*.
+- **ASR2 — Ranking com p95 ≤ 300 ms para 100 mil usuários** (desempenho e escalabilidade,
+  medidos via observabilidade). Impacta **dados e implantação**: consulta indexada e paginada,
+  cache, réplicas *stateless* e métricas que dizem quando escalar ou extrair.
 - **ASR3 — Fronteiras verificáveis automaticamente** (testabilidade). Impacta a **operação**,
   com regras ArchUnit no CI a cada commit e Pull Request.
 
@@ -35,8 +36,9 @@ seletiva, extraindo o Ranking como serviço.
 
 - **RPC1:** Core em Java 21 e Spring Boot.
 - **RPC2:** equipe de 6 desenvolvedores.
-- **RPC3:** banco relacional único (PostgreSQL 16) e legado da AC1. Os contratos de `/students` e
-  o schema existente não podem quebrar.
+- **RPC3:** banco relacional único (PostgreSQL 16).
+- **RPC4:** legado da AC1. Os contratos de `/students`, o front-end Vue e o schema existente
+  (`students`, `level_up_events`) não podem quebrar.
 
 ## Alternativas consideradas
 
@@ -44,7 +46,7 @@ seletiva, extraindo o Ranking como serviço.
 |---|---|
 | **A — Monólito em Camadas** (manter) | Custo operacional mínimo, mas cada nova funcionalidade se espalha por todas as camadas e nada impede acoplamento indevido. Não atende a ASR1 nem a ASR3. |
 | **B — Monólito Modular** | Um deploy e um banco, com custo operacional igual ao de A. Módulos isolados atrás de uma API, com fronteiras verificadas por ArchUnit. Atende às ASR1 e ASR3. A ASR2 é atendida com índice, cache e escala horizontal do conjunto. |
-| **C — Ranking como serviço** | Escala e deploy independentes do Ranking, à custa de rede, contrato versionado, segundo pipeline, observabilidade distribuída e dados duplicados ou banco compartilhado. Resolve um gargalo **não comprovado**, com custo desproporcional para 6 devs e banco único. |
+| **C — Decomposição em serviços** (Ranking primeiro) | Escala e deploy independentes do Ranking, à custa de rede, contrato versionado, segundo pipeline, observabilidade distribuída e dados duplicados ou banco compartilhado. Resolve um gargalo **não comprovado**, com custo desproporcional para 6 devs e banco único. |
 
 ## Decisão
 
@@ -60,8 +62,11 @@ Adotar o **Monólito Modular (B)** no Core:
    `StudentProgressionApi`. Ranking e Conquistas entram como novos módulos que consomem
    `progression.api`.
 5. O Ranking **não** será extraído agora. A extração será reavaliada quando ao menos dois dos
-   gatilhos G1–G5 (seção 6 do README) forem observados de forma sustentada, depois de aplicados
+   gatilhos G1–G5 (§4.2 do README) forem observados de forma sustentada, depois de aplicados
    índice, paginação e cache.
+6. Os gatilhos são medidos, não estimados: o Core passa a expor métricas (Spring Boot Actuator +
+   Micrometer em `/actuator/prometheus`), coletadas pelo Prometheus e exibidas no Grafana, como
+   containers do mesmo `docker-compose.yml` (planejado, AC2).
 
 ## Consequências e trade-offs
 

@@ -1,118 +1,251 @@
-# Desafio 1 — Drivers e Evolução do Core
+# Estudo de Caso: Educação Continuada Gamificada
 
-Documento de arquitetura do Core da plataforma de Educação Continuada Gamificada (AC1, Grupo 10).
-Objetivo: decidir, com rastreabilidade, como o Core deve evoluir quando o MVP cresce de
-**1.000 para até 100.000 usuários**, com o **Ranking** crescendo mais que as demais
-funcionalidades e cursos, conquistas e recompensas continuando a evoluir.
+Documento de arquitetura do Core da plataforma de Educação Continuada Gamificada (AC1, Grupo 10),
+atualizado para o exercício **ExB1 — Arquitetura de Software (AC2, DevOps e QA)** a partir do
+documento do Desafio 1.
+
+**Cenário:** o MVP cresceu de **1.000 para até 100.000 usuários**; o **Ranking** cresce mais que
+as outras funcionalidades; cursos, conquistas e recompensas continuam evoluindo.
 
 Cadeia de rastreabilidade seguida neste documento:
 
 ```
-RF → RNF → ASR + RPC → alternativas/trade-offs → ADR → C4 → evidência (código, testes, CI)
+RF → RNF → ASR → RPC (trade-offs) → ADR → C4 → evidência no código
 ```
 
-**Resumo da decisão:** Monólito Modular. Não há necessidade comprovada de escala ou deploy
+**Resumo da decisão:** **Monólito Modular.** Não há necessidade comprovada de escala ou deploy
 independente, e a complexidade distribuída não se justifica para 6 devs com um banco relacional
-único. Ranking e Conquistas entram como módulos com API própria. A extração do Ranking tem
-gatilhos mensuráveis (§6). A tabela que liga cada item ao seguinte está na
-**[§12 Rastreabilidade](#12-rastreabilidade)** e o registro formal está no
+único. Ranking e Conquistas entram como módulos com API própria; a extração do Ranking como
+serviço tem gatilhos mensuráveis (§4.2). Tabela completa em
+**[Rastreabilidade](#rastreabilidade)**; registro formal no
 [ADR-001](adr/ADR-001-estilo-arquitetural-core.md).
+
+> **Legenda de estado:** **Existe** = implementado e testado nesta branch. **Planejado** = desenho-alvo
+> das próximas etapas; nenhum código correspondente existe ainda.
 
 ---
 
-## 1. Requisitos funcionais (RF)
+## 1. RF — Requisitos Funcionais
 
-Estado **real** do código da AC1 (branch `main`, commit `ecc44f7`):
-
-| RF | Situação no código | Classes / endpoints reais | Onde entra na arquitetura |
+| RF | Estado | Classes / endpoints reais | Onde entra na arquitetura |
 |---|---|---|---|
-| **RF01 — Ranking** | **Não existe.** Não há endpoint, consulta ordenada nem tabela de ranking. | O dado de origem já existe: `xp_total` em `StudentEntity` (tabela `students`), exposto por `GET /students` (`StudentController.listStudents`). | Novo módulo `ranking` que **consome a API pública** do módulo `progression` (consulta de alunos ordenada por XP) e mantém seu próprio cache/projeção. Nunca acessa `StudentRepository`/`StudentEntity` diretamente. |
-| **RF02 — Conquistas** | **Não existe.** | O conceito mais próximo é o histórico de level-up: `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão (ex.: "subiu de nível", "acumulou X XP") publicados pelo módulo `progression`, em processo (Spring `ApplicationEvent`), sem chamada remota. |
-| **RF-EVO — Evolução das funcionalidades existentes** | Existe (US1–US4). | `POST /students`, `POST /students/{id}/xp`, `GET /students/{id}`, `GET /students` (`StudentController` → `StudentService` → `StudentRepository`); regra de XP/nível em `Student` e `Level`. | Vira o módulo `progression` (mini-lab, seção 7). Cursos e recompensas **também não existem** no código; entrariam como módulos irmãos (`cursos`, `recompensas`) seguindo o mesmo padrão `api/` + `internal/`. |
+| **RF01 — Ranking** | **Planejado.** Não há endpoint, consulta ordenada nem tabela de ranking. | Dado de origem já existe: coluna `xp_total` de `StudentEntity` (tabela `students`), exposta hoje só por `GET /students` (`StudentController.listStudents` → `StudentProgressionApi.listStudents`). | Novo módulo `ranking` (`ranking.api` + `ranking.internal`) que consome **apenas** `StudentProgressionApi`; consulta ordenada, paginada e com cache próprio. |
+| **RF02 — Conquistas** | **Planejado.** | Conceito mais próximo: histórico de level-up — `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão em processo (Spring `ApplicationEvent`), sem chamada remota. |
+| **RF03 — Cadastrar aluno** (US4) | **Existe.** | `POST /students` → `StudentController.createStudent` → `StudentProgressionApi.createStudent` (impl. `StudentService`) → `StudentRepository.save`. DTO `CreateStudentRequestDTO`. | Módulo `progression`. |
+| **RF04 — Conceder XP e subir de nível** (US1, US2, US3) | **Existe.** | `POST /students/{id}/xp` → `StudentController.receiveXp` → `StudentService.receiveXp`; regra em `Student.receiveXp` + `Level.fromXp` (BRONZE 0, PRATA 100, OURO 300, DIAMANTE 700); um `LevelUpEvent` por faixa atravessada. DTO `ReceiveXpRequestDTO`. | Módulo `progression` (domínio em `progression.internal.domain`). |
+| **RF05 — Consultar perfil do aluno** (US4) | **Existe.** | `GET /students/{id}` → `StudentController.getStudent` → `StudentService.getStudent`; `404` via `StudentNotFoundException` + `ApiExceptionHandler`. DTOs `StudentResponseDTO`, `LevelUpEventDTO`. | Módulo `progression`. |
+| **RF06 — Listar alunos** | **Existe.** | `GET /students` → `StudentController.listStudents` → `StudentService.listStudents` (`findAll()` sem paginação). | Módulo `progression`; base de dados do RF01. |
+| **RF-EVO — Cursos e recompensas** | **Planejado.** Não existem no código. | — | Módulos irmãos (`cursos`, `recompensas`) no mesmo padrão `api/` + `internal/`. |
 
-## 2. Requisitos não funcionais (RNF) analisados
+Interfaces de apoio que já existem: front-end Vue 3 em `src/main/resources/static/index.html`
+(consome `/students`) e documentação OpenAPI (`OpenApiConfig`, `/swagger-ui.html`, `/v3/api-docs`).
 
-| RNF | Análise no contexto da AC1 |
-|---|---|
-| **Manutenibilidade** | Hoje o código é organizado só por camada técnica (`web`, `service`, `repository`, `entity`, `dto`, `domain`); com Ranking, Conquistas, Cursos e Recompensas entrando, cada funcionalidade ficaria espalhada por todas as camadas e qualquer classe poderia importar qualquer outra (ex.: nada impede `web` de usar `StudentRepository`). |
-| **Desempenho** | 100 mil usuários é carga moderada; o risco real é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1) — um Ranking ingênuo em cima disso degradaria. Resolve-se com consulta ordenada + índice em `students.xp_total`, paginação e cache, sem mudar o estilo arquitetural. |
-| **Escalabilidade** | O Ranking é *read-heavy* e cresce mais que o resto; um monólito *stateless* escala horizontalmente (várias réplicas atrás de um balanceador) e o ranking pode ser servido de cache. Não há, hoje, evidência medida de que só o Ranking precise de escala independente. |
-| **Testabilidade** | Boa base: domínio em POJO e 100% de cobertura. Falta testar as **fronteiras**: nenhuma verificação automática impede um acoplamento indevido entre funcionalidades. |
-| **Complexidade operacional** | Hoje: 1 jar, 1 imagem Docker, 1 Postgres, 1 `docker-compose.yml`. Serviços separados trariam múltiplos pipelines, versionamento de contrato, rede entre serviços, observabilidade distribuída e consistência de dados entre bancos — custo alto para 6 desenvolvedores. |
+## 2. RNF — Requisitos Não-Funcionais
 
-## 3. ASR — requisitos arquiteturalmente significativos (máx. 3)
+| RNF | Análise no contexto da AC1 | Meta mensurável | Situação hoje |
+|---|---|---|---|
+| **Manutenibilidade** | Com Ranking, Conquistas, Cursos e Recompensas entrando, uma organização só por camada técnica espalharia cada funcionalidade por todos os pacotes e permitiria qualquer import. | 0 violações das regras de `ModularArchitectureTest`; um novo módulo não exige alterar classes de `progression.internal`. | Existe: 6 regras ArchUnit verdes no `mvn verify`. |
+| **Desempenho** | O risco é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1). Um Ranking ingênuo em cima disso degradaria. | Ranking (top 100 e posição do aluno) com **p95 ≤ 300 ms** e **base de 100.000 alunos**; `POST /students/{id}/xp` com p95 ≤ 200 ms. | Não medido; Ranking não existe. Será medido na §7. |
+| **Escalabilidade** | Ranking é *read-heavy* e cresce mais que o resto. Monólito *stateless* escala horizontalmente; o ranking pode vir de cache. | Atender 100.000 usuários escalando réplicas do Core sem mudar código; nenhuma sessão em memória. | Core já é *stateless* (sem sessão HTTP); 1 réplica no `docker-compose.yml`. |
+| **Testabilidade** | Domínio em POJO e regra de fronteira verificável por teste. | **Cobertura de 100%** de linhas e branches; piso de **90%** que quebra o build (`jacoco:check`). | Existe: 100% instruções/linhas/branches/métodos; piso de 90% no `pom.xml`. |
+| **Observabilidade** | Sem métricas não há como saber se os gatilhos de extração do Ranking (§4.2) foram atingidos — a decisão depende disso. | Latência p95, taxa de erro e throughput por endpoint expostos em formato Prometheus e visualizados no Grafana; alerta se p95 do ranking > 300 ms. | **Não existe:** sem Actuator, Micrometer, Prometheus ou Grafana no projeto. Será implementado na §7. |
+| **Complexidade operacional** | Hoje: 1 jar, 1 imagem Docker, 1 PostgreSQL, 1 `docker-compose.yml`, 1 workflow de CI. Serviços separados trariam múltiplos pipelines, contratos versionados, rede e dados distribuídos. | Continuar com **1 artefato, 1 banco e 1 pipeline**; ambiente completo sobe com um único `docker compose up`. | Atendido. |
+
+## 3. ASR — Os drivers (máx. 3)
 
 | ASR | RNF de origem | Como altera a arquitetura (uma frase) |
 |---|---|---|
-| **ASR1 — Evoluir funcionalidades com baixo acoplamento** | Manutenibilidade | Altera a **estrutura**: o Core passa a ser dividido em módulos por funcionalidade (`api/` público + `internal/` privado), e só a API de um módulo pode ser usada pelo restante do sistema. |
-| **ASR2 — Ranking responder bem sob até 100 mil usuários** | Desempenho + Escalabilidade | Altera **dados e implantação**: o Ranking ganha consulta indexada/paginada e cache próprios, e o Core é implantado como réplicas *stateless* que escalam horizontalmente juntas. |
-| **ASR3 — Fronteiras verificáveis automaticamente** | Testabilidade | Altera a **operação** (pipeline): regras de dependência entre módulos viram testes ArchUnit que rodam em todo commit e Pull Request, bloqueando o merge quando violadas. |
+| **ASR1 — Evoluir funcionalidades com baixo acoplamento** | Manutenibilidade | Altera a **estrutura**: o Core é dividido em módulos por funcionalidade (`api/` público + `internal/` privado) e só a API de um módulo pode ser usada pelo restante do sistema. |
+| **ASR2 — Ranking com p95 ≤ 300 ms para 100.000 usuários** | Desempenho + Escalabilidade (medido via Observabilidade) | Altera **dados e implantação**: o Ranking ganha consulta indexada/paginada e cache próprios, o Core roda em réplicas *stateless* e expõe métricas que dizem quando escalar ou extrair. |
+| **ASR3 — Fronteiras verificáveis automaticamente** | Testabilidade | Altera a **operação** (pipeline): as regras de dependência viram testes ArchUnit que rodam em todo commit e Pull Request, bloqueando o merge quando violadas. |
 
-Complexidade operacional **não** virou ASR por si só: ela entra como **restrição** na escolha
-(seção 5), não como requisito a maximizar.
+Observabilidade não é um driver isolado: é o meio de verificar a ASR2 e os gatilhos da §4.2.
+Complexidade operacional entra como **restrição** na escolha (§4), não como requisito a maximizar.
 
-## 4. RPC — restrições de projeto e contexto
+## 4. RPC — Restrições, premissas e trade-offs
 
-| RPC | Restrição | Impacto na decisão |
+| RPC | Restrição / premissa | Impacto na decisão |
 |---|---|---|
-| RPC1 | Core em **Java 21 / Spring Boot** (stack atual da AC1). | A modularização deve usar recursos da própria stack (pacotes, interfaces, eventos do Spring), sem nova linguagem/runtime. |
-| RPC2 | Equipe de **6 desenvolvedores**. | Um único time; não há times independentes que justifiquem deploys independentes (lei de Conway). |
-| RPC3 | **Banco relacional único** (PostgreSQL 16) e **legado da AC1** (tabelas `students` e `level_up_events`, endpoints `/students` consumidos pelo front-end Vue). | Contratos HTTP e schema existentes não podem quebrar; dividir o banco exigiria migração de dados e consistência eventual. |
+| **RPC1** | Core em **Java 21 / Spring Boot 4.1** (stack atual). | Modularização com recursos da própria stack (pacotes, interfaces, `ApplicationEvent`), sem nova linguagem ou runtime. |
+| **RPC2** | Equipe de **6 desenvolvedores**. | Um único time; não há times independentes que justifiquem deploys independentes (lei de Conway). |
+| **RPC3** | **Banco relacional único** (PostgreSQL 16). | Dividir o banco por serviço exigiria migração de dados e consistência eventual. |
+| **RPC4** | **Legado da AC1**: tabelas `students` e `level_up_events`, endpoints `/students` consumidos pelo front-end Vue, 100% de cobertura herdada do ciclo RED→GREEN→BLUE. | Contratos HTTP, JSON e schema não podem quebrar (protegido por `StudentEndpointIntegrationTest`). |
 
-## 5. Decisão do Tech Lead
+**Premissas:** não há medição de carga em produção; 100.000 usuários cadastrados não significam
+100.000 simultâneos; o Ranking pode tolerar alguns segundos de defasagem (cache).
 
-**Quais RNFs viram ASRs?** Manutenibilidade (ASR1), Desempenho + Escalabilidade do Ranking (ASR2)
-e Testabilidade das fronteiras (ASR3). Complexidade operacional é tratada como restrição.
+### 4.1 Comparação das alternativas
 
-**Há necessidade COMPROVADA de escala ou deploy independente?** **Não.** Não há medição de
-latência, de carga nem de gargalo do Ranking — o Ranking sequer existe ainda. 100 mil usuários é
-carga moderada para um monólito bem estruturado, com índices, paginação e cache, rodando em
-réplicas *stateless*. Também não há demanda de deploy independente: um único time de 6 pessoas
-publica um único artefato.
-
-**A complexidade distribuída é justificável?** **Não, agora.** Microsserviços trariam rede,
-contratos versionados, banco por serviço, consistência eventual e observabilidade distribuída
-para resolver um problema que ainda não foi medido. Com 6 devs e um banco relacional único, o
-custo superaria o benefício.
-
-**Decisão:** adotar o **Monólito Modular (alternativa B)**, com fronteiras por funcionalidade
-verificadas por ArchUnit no CI, e manter **gatilhos mensuráveis** (seção 6) para extrair o
-Ranking como serviço quando — e se — houver evidência. Registro formal no
-[ADR-001](adr/ADR-001-estilo-arquitetural-core.md).
-
-## 6. Alternativas e trade-offs
-
-| RNF | (A) Monólito em Camadas | (B) Monólito Modular | (C) Decomposição seletiva (Ranking como serviço) |
+| Critério | (A) Monólito em Camadas | (B) Monólito Modular | (C) Decomposição em serviços (Ranking como serviço) |
 |---|---|---|---|
-| Manutenibilidade | Baixa com o crescimento: funcionalidades espalhadas por camadas, acoplamento livre. | **Alta**: cada funcionalidade isolada atrás de uma API; mudanças locais ao módulo. | Alta para o Ranking, mas exige versionar contrato HTTP/eventos entre Core e serviço. |
-| Desempenho | Adequado com índice/cache. | Adequado com índice/cache (igual a A em runtime: chamadas em memória). | Ganho só se o Ranking for gargalo isolado; adiciona latência de rede e serialização. |
-| Escalabilidade | Horizontal, do sistema inteiro. | Horizontal, do sistema inteiro; o módulo `ranking` já fica pronto para extração. | Escala o Ranking de forma independente (único benefício real, ainda não necessário). |
-| Testabilidade | Testes unitários bons, mas sem verificação de fronteiras. | **Fronteiras testáveis** (ArchUnit) + testes por módulo. | Exige testes de contrato e ambientes integrados; mais difícil reproduzir localmente. |
-| Complexidade operacional | Mínima (1 jar, 1 banco). | **Mínima** (1 jar, 1 banco) — mesmo pipeline e mesmo deploy. | Alta: 2+ pipelines, 2+ deploys, rede, *service discovery*, observabilidade distribuída, dados duplicados ou banco compartilhado (antipadrão). |
-| **Prós** | Simples, já existe. | Baixo acoplamento com custo operacional de monólito; prepara extração futura. | Escala e deploy independentes do Ranking. |
-| **Contras** | Degrada a cada nova funcionalidade; não protege fronteiras. | Exige disciplina (garantida por ArchUnit no CI); escala ainda é do conjunto. | Custo alto e prematuro para 6 devs e banco único; resolve gargalo não comprovado. |
+| Manutenibilidade | Baixa com o crescimento: funcionalidades espalhadas pelas camadas, acoplamento livre. | **Alta**: cada funcionalidade isolada atrás de uma API; mudanças locais ao módulo. | Alta para o Ranking, mas exige versionar contrato HTTP/eventos entre Core e serviço. |
+| Desempenho | Adequado com índice e cache. | Adequado com índice e cache (chamadas em memória, igual a A). | Ganho só se o Ranking for gargalo isolado; adiciona latência de rede e serialização. |
+| Escalabilidade | Horizontal, do sistema inteiro. | Horizontal, do sistema inteiro; `ranking` já fica pronto para extração. | Escala o Ranking de forma independente (único benefício real, ainda não necessário). |
+| Testabilidade | Testes unitários bons, sem verificação de fronteiras. | **Fronteiras testáveis** (ArchUnit) + testes por módulo. | Exige testes de contrato e ambientes integrados; mais difícil reproduzir localmente. |
+| Observabilidade | Simples: um processo, um `/actuator/prometheus`. | Simples: um processo; métricas por endpoint/módulo com tags. | Distribuída: métricas por serviço, *tracing* entre serviços para seguir uma requisição. |
+| Complexidade operacional | Mínima (1 jar, 1 banco). | **Mínima** (1 jar, 1 banco, 1 pipeline). | Alta: 2+ pipelines e deploys, rede, *service discovery*, dados duplicados ou banco compartilhado (antipadrão). |
+| Aderência às RPCs | Atende RPC1–4. | Atende RPC1–4. | Conflita com RPC2 (6 devs) e RPC3 (banco único). |
+| **Prós** | Simples, já existia. | Baixo acoplamento com custo operacional de monólito; prepara extração futura. | Escala e deploy independentes do Ranking. |
+| **Contras** | Degrada a cada nova funcionalidade; não protege fronteiras. | Exige disciplina (garantida por ArchUnit no CI); a escala ainda é do conjunto. | Custo alto e prematuro; resolve um gargalo não comprovado. |
 
-### Gatilhos mensuráveis para extrair o Ranking como serviço (revisitar o ADR-001)
+### 4.2 Gatilhos mensuráveis para extrair o Ranking como serviço
 
-A extração só deve ser reavaliada quando **pelo menos dois** gatilhos forem observados de forma
-sustentada (ex.: 2 semanas em produção), **depois** de aplicados índice, paginação e cache:
+A extração (alternativa C) só deve ser reavaliada quando **pelo menos dois** gatilhos forem
+observados de forma sustentada (ex.: 2 semanas em produção), **depois** de aplicados índice,
+paginação e cache. As medições vêm do Prometheus/Grafana (§6, Container).
 
-| # | Gatilho | Limite sugerido |
+| # | Gatilho | Limite |
 |---|---|---|
 | G1 | Latência do endpoint de ranking | p95 > 300 ms sob carga real, mesmo com cache e índice |
 | G2 | Carga desproporcional | Ranking > 60% das requisições ou da CPU do Core, forçando escalar o monólito inteiro só por ele |
-| G3 | Contenção no banco | Consultas de ranking > 40% do tempo de banco ou afetando a latência de `POST /students/{id}/xp` |
+| G3 | Contenção no banco | Consultas de ranking > 40% do tempo de banco ou elevando o p95 de `POST /students/{id}/xp` acima de 200 ms |
 | G4 | Frequência de deploy | Ranking precisa de deploy ≥ 2×/semana independente dos demais e > 30% dos releases ficam bloqueados por outros módulos |
 | G5 | Organização | Equipe cresce para ≥ 2 times com ownership separado do Ranking |
 
-Pré-condição para extrair barato: o módulo `ranking` já estar isolado atrás de sua API, com
-ArchUnit verde — exatamente o que a alternativa B garante.
+Pré-condição para extrair barato: o módulo `ranking` isolado atrás da sua API, com ArchUnit
+verde — exatamente o que a alternativa B garante.
+
+## 5. ADR — Decisão registrada
+
+[**ADR-001 — Estilo arquitetural do Core: Monólito Modular**](adr/ADR-001-estilo-arquitetural-core.md)
+— status **Aceito**, 2026-10-27.
+
+- **Decisão:** Monólito Modular (B). Cada funcionalidade é um pacote-módulo
+  `org.example.ac1devops.<modulo>` com `api/` (fachada pública) e `internal/` (service, domínio,
+  persistência); o resto do sistema só usa a `api/`. Primeiro módulo: `progression`, com a
+  fachada `StudentProgressionApi`.
+- **Garantia:** `ModularArchitectureTest` (ArchUnit) no `mvn verify`, executado pelo CI em todo
+  push e Pull Request.
+- **Ranking:** não é extraído agora; reavaliação pelos gatilhos G1–G5, medidos com
+  Prometheus/Grafana.
+- **Trade-off aceito:** a escala continua sendo do conjunto e o banco é compartilhado (fronteira
+  de dados só lógica), em troca de manter 1 artefato, 1 banco e 1 pipeline.
+
+## 6. Diagrama C4
+
+Elementos marcados **(planejado)** ainda não existem no código; os demais existem nesta branch.
+
+### 6.1 Contexto (C4Context)
+
+```mermaid
+C4Context
+  title Educação Continuada Gamificada — Contexto
+
+  Person(aluno, "Aluno", "Ganha XP, sobe de nível, consulta perfil e (planejado) ranking e conquistas")
+  Person(equipe, "Equipe (6 devs)", "Desenvolve, opera e monitora a plataforma")
+
+  System(plataforma, "Plataforma de Educação Continuada Gamificada", "Front-end Vue + Core API (Monólito Modular) + PostgreSQL")
+
+  System_Ext(github, "GitHub / GitHub Actions", "Repositório e CI: mvn verify (testes, ArchUnit, JaCoCo)")
+  System_Ext(obs, "Stack de observabilidade (planejado)", "Prometheus + Grafana")
+
+  Rel(aluno, plataforma, "Usa", "HTTPS")
+  Rel(equipe, github, "push / Pull Request")
+  Rel(equipe, obs, "Acompanha métricas e gatilhos G1–G5")
+  Rel(obs, plataforma, "Coleta métricas", "HTTP")
+```
+
+### 6.2 Container (C4Container)
+
+```mermaid
+C4Container
+  title Educação Continuada Gamificada — Containers
+
+  Person(aluno, "Aluno")
+  Person(equipe, "Equipe (6 devs)")
+
+  System_Boundary(plataforma, "Plataforma") {
+    Container(spa, "Front-end", "Vue 3 via CDN (static/index.html)", "Servido pelo próprio Core na raiz '/'")
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 — Monólito Modular", "Módulo progression; ranking e conquistas (planejado). Réplicas stateless.")
+    ContainerDb(db, "Banco relacional", "PostgreSQL 16", "students, level_up_events (cada módulo é dono das suas tabelas)")
+    Container(pgadmin, "pgAdmin", "pgAdmin 4", "Inspeção do banco (docker-compose)")
+    Container(prom, "Prometheus (planejado)", "Prometheus", "Coleta /actuator/prometheus do Core e guarda séries temporais")
+    Container(graf, "Grafana (planejado)", "Grafana", "Painéis de latência p95, erros e throughput; acompanha G1–G5")
+  }
+
+  System_Ext(gha, "GitHub Actions", "CI: .github/workflows/ci.yml")
+
+  Rel(aluno, spa, "Usa", "HTTPS")
+  Rel(spa, core, "Chama /students", "JSON/HTTP")
+  Rel(core, db, "Lê e escreve", "JPA/JDBC")
+  Rel(pgadmin, db, "Conecta", "SQL")
+  Rel(prom, core, "Scrape de métricas", "HTTP")
+  Rel(graf, prom, "Consulta", "PromQL")
+  Rel(equipe, graf, "Monitora")
+  Rel(equipe, pgadmin, "Consulta")
+  Rel(equipe, gha, "push / Pull Request")
+```
+
+### 6.3 Component do Core (C4Component)
+
+```mermaid
+C4Component
+  title Core API — Componentes (Monólito Modular)
+
+  Container(spa, "Front-end", "Vue 3")
+  ContainerDb(db, "Banco relacional", "PostgreSQL 16")
+  Container(prom, "Prometheus (planejado)", "Prometheus")
+
+  Container_Boundary(core, "Core API (Spring Boot)") {
+    Component(ctrl, "StudentController + ApiExceptionHandler", "Spring MVC (pacote web)", "REST /students; usa só progression.api")
+    Component(api, "StudentProgressionApi", "Interface Java (progression.api)", "Fachada pública: DTOs, Level, StudentNotFoundException")
+    Component(svc, "StudentService", "Spring @Service (progression.internal)", "Implementa a fachada; orquestra domínio e persistência")
+    Component(dom, "Student / LevelUpEvent", "POJO (progression.internal.domain)", "Regra de XP e níveis")
+    Component(repo, "StudentRepository + StudentEntity / LevelUpEventEntity", "Spring Data JPA (progression.internal.persistence)", "students, level_up_events")
+    Component(rank, "Módulo ranking (planejado, RF01)", "ranking.api / ranking.internal", "Consulta ordenada por XP, paginada, com cache")
+    Component(conq, "Módulo conquistas (planejado, RF02)", "conquistas.api / conquistas.internal", "Reage a eventos de level-up (ApplicationEvent)")
+    Component(metrics, "Métricas (planejado)", "Spring Boot Actuator + Micrometer", "Expõe /actuator/prometheus")
+  }
+
+  Rel(spa, ctrl, "JSON/HTTP")
+  Rel(ctrl, api, "Chama")
+  Rel(svc, api, "Implementa")
+  Rel(svc, dom, "Usa")
+  Rel(svc, repo, "Usa")
+  Rel(repo, db, "JPA/JDBC")
+  Rel(rank, api, "Consulta alunos/XP (em memória)")
+  Rel(conq, api, "Escuta eventos de level-up (em memória)")
+  Rel(prom, metrics, "Scrape", "HTTP")
+```
 
 ---
 
-## 7. Mini-lab — modularização do módulo `progression`
+## Rastreabilidade
 
-**Funcionalidade escolhida:** como Ranking e Conquistas ainda não existem (seção 1), foi
+| RF | RNF | ASR | RPC | ADR | C4 | Evidência no código |
+|---|---|---|---|---|---|---|
+| RF01 Ranking (planejado; fonte: `xp_total` em `StudentEntity`) | Desempenho, Escalabilidade, Observabilidade | ASR2 | RPC3 (banco único), RPC4 (legado) | ADR-001, Decisão itens 5–6 + gatilhos G1–G5 | Component: módulo `ranking` → `StudentProgressionApi`; Container: Prometheus/Grafana | `StudentProgressionApi.listStudents` (fonte de dados); medições na §7 |
+| RF02 Conquistas (planejado; base: `LevelUpEvent`) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` | `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
+| RF03–RF06 Progressão (`/students`, US1–US4) | Manutenibilidade, Testabilidade | ASR1, ASR3 | RPC2 (6 devs), RPC4 (legado) | ADR-001, Decisão itens 1–4 | Component: `StudentController` → `StudentProgressionApi` ← `StudentService` | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java), [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) |
+| (todos) | Testabilidade (cobertura 100%) | ASR3 | RPC4 (cobertura herdada) | ADR-001, Consequências | Context/Container: GitHub Actions | `jacoco:check` no [`pom.xml`](../../pom.xml), [`ci.yml`](../../.github/workflows/ci.yml) |
+| (todos) | Observabilidade | ASR2 (meio de verificação) | RPC1 (Actuator/Micrometer da stack) | ADR-001, Decisão item 6 | Container: Prometheus, Grafana; Component: Métricas | Planejado — §7 Observabilidade |
+| (todos) | Complexidade operacional | Restrição | RPC2, RPC3 | ADR-001, Alternativas (C rejeitada) | Container: 1 Core, 1 banco | [`docker-compose.yml`](../../docker-compose.yml), um único [`ci.yml`](../../.github/workflows/ci.yml) |
+
+---
+
+## 7. AC1 — Legado
+
+### Implementação
+
+### Monólito Modular x Camadas
+
+### Ranking para 100.000 usuários
+
+### Cobertura de testes
+
+### Observabilidade
+
+### Teste com Mocks
+
+---
+
+## Anexo — Evidências do Desafio 1
+
+Conteúdo produzido no Desafio 1 e mantido como evidência da modularização já aplicada ao código.
+
+### A.1 Mini-lab — modularização do módulo `progression`
+
+**Funcionalidade escolhida:** como Ranking e Conquistas ainda não existem (§1), foi
 modularizada a funcionalidade real mais próxima: a **progressão do aluno (XP e níveis, US1–US4)**,
 que é exatamente a fonte de dados do futuro Ranking e dos eventos que alimentarão Conquistas.
 
@@ -122,7 +255,7 @@ existentes continuaram passando sem alteração de asserções; só mudaram `pac
 `StudentControllerTest` passou a mockar a interface `StudentProgressionApi` no lugar da classe
 concreta `StudentService`.
 
-### Estrutura
+#### Estrutura
 
 ANTES (organização só por camada técnica):
 
@@ -155,7 +288,7 @@ org.example.ac1devops
 `Level` ficou em `api/` porque faz parte do contrato publicado (é o tipo do campo `level` e dos
 eventos nos DTOs de resposta).
 
-### Dependências entre pacotes (imports `org.example.ac1devops.*`)
+#### Dependências entre pacotes (imports `org.example.ac1devops.*`)
 
 Levantamento feito por script sobre `src/main/java` (cada linha = pacote de origem → pacote
 importado, com a quantidade de imports):
@@ -205,7 +338,7 @@ graph LR
   per --> api
 ```
 
-### Contagem de dependências
+#### Contagem de dependências
 
 | Métrica | ANTES | DEPOIS |
 |---|---|---|
@@ -216,11 +349,10 @@ graph LR
 | Dependências de fora do módulo para `internal` | — (não havia fronteira; `web` podia importar `entity`/`repository`) | 0 (garantido por ArchUnit) |
 | Ciclos entre pacotes | 0 | 0 |
 
----
 
-## 8. Evidência de QA
+### A.2 Evidência de QA
 
-### Testes que protegem a decisão
+#### Testes que protegem a decisão
 
 | Teste | Tipo | O que garante |
 |---|---|---|
@@ -234,7 +366,7 @@ graph LR
 (`ninguemForaDoModuloAcessaInternal` e `camadasRespeitadas`); a classe foi removida em seguida.
 Saída registrada em [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt).
 
-### Resultado dos testes
+#### Resultado dos testes
 
 | | ANTES (`main`, `ecc44f7`) | DEPOIS (esta branch) |
 |---|---|---|
@@ -244,7 +376,7 @@ Saída registrada em [`evidencias/archunit-violacao.txt`](evidencias/archunit-vi
 | Testes de integração HTTP do módulo (sem mock) | 0 | 2 |
 | Piso de cobertura no build | não havia | `jacoco:check` — linhas ≥ 90% e branches ≥ 90% (falha o `verify`) |
 
-### Cobertura JaCoCo do módulo (classes da funcionalidade de progressão)
+#### Cobertura JaCoCo do módulo (classes da funcionalidade de progressão)
 
 | Classe (ANTES → DEPOIS) | Instruções | Linhas | Branches |
 |---|---|---|---|
@@ -264,11 +396,10 @@ que impede regressão. `StudentProgressionApi` é interface e não gera instruç
 Fontes brutas: [`evidencias/jacoco-antes.csv`](evidencias/jacoco-antes.csv) e
 [`evidencias/jacoco-depois.csv`](evidencias/jacoco-depois.csv). Relatório HTML gerado em
 `target/site/jacoco/index.html` a cada `./mvnw verify` e publicado como artifact pelo CI
-(seção 9).
+(§A.3).
 
----
 
-## 9. Evidência de DevOps — pipeline de CI
+### A.3 Evidência de DevOps — pipeline de CI
 
 Workflow: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) (não havia workflow
 anterior no repositório).
@@ -277,7 +408,7 @@ anterior no repositório).
 |---|---|
 | `push` em qualquer branch e `pull_request` para `main` | 1. `actions/checkout` → 2. `actions/setup-java` (Temurin **21**, igual ao `<java.version>` do `pom.xml`, com cache Maven) → 3. `./mvnw -B clean verify` → 4. publica `target/site/jacoco/` como artifact **`jacoco-report`** e `target/surefire-reports/` como **`surefire-reports`** (mesmo se o build falhar). |
 
-### Como o pipeline protege a decisão arquitetural
+#### Como o pipeline protege a decisão arquitetural
 
 1. **A regra modular é código executável.** `ModularArchitectureTest` roda dentro do
    `mvn verify` como qualquer teste; não depende de revisão manual lembrar da regra.
@@ -295,98 +426,3 @@ anterior no repositório).
    marcando o check `Build, testes, ArchUnit e cobertura`. Assim a decisão do ADR-001 não pode
    ser violada nem por push direto na `main`.
 
----
-
-## 10. Decisão registrada — ADR
-
-[ADR-001 — Estilo arquitetural do Core: Monólito Modular](adr/ADR-001-estilo-arquitetural-core.md)
-(status **Aceito**, 2026-10-06).
-
-## 11. C4
-
-### C4 — Nível 2 (Container)
-
-A decisão é **interna ao Core**, então o diagrama de containers **não muda**: continuam um
-único container de aplicação e um único banco. Esse é justamente o efeito pretendido, porque não
-entra nenhum container, rede ou pipeline novo. O impacto aparece no nível de componentes, logo
-abaixo.
-
-```mermaid
-C4Container
-  title Plataforma de Educação Continuada Gamificada — Containers (após ADR-001)
-
-  Person(aluno, "Aluno", "Acumula XP, sobe de nível e (futuro) consulta ranking e conquistas")
-  Person(ops, "Equipe (6 devs)", "Desenvolve, opera e inspeciona o banco")
-
-  System_Boundary(plataforma, "Plataforma") {
-    Container(spa, "Front-end", "Vue 3 via CDN (static/index.html)", "Servido pelo próprio Core na raiz '/'")
-    Container(core, "Core API", "Java 21, Spring Boot 4.1 (Monólito Modular)", "Módulo progression hoje; ranking e conquistas como módulos futuros. Réplicas stateless.")
-    ContainerDb(db, "Banco relacional", "PostgreSQL 16", "Tabelas students e level_up_events (cada módulo é dono das suas tabelas)")
-    Container(pgadmin, "pgAdmin", "pgAdmin 4", "Inspeção do banco (docker-compose)")
-  }
-
-  System_Ext(gha, "GitHub Actions", "CI: mvn verify (testes, ArchUnit, JaCoCo)")
-
-  Rel(aluno, spa, "Usa", "HTTPS")
-  Rel(spa, core, "Chama /students", "JSON/HTTP")
-  Rel(core, db, "Lê e escreve", "JPA/JDBC")
-  Rel(ops, pgadmin, "Consulta")
-  Rel(pgadmin, db, "Conecta", "SQL")
-  Rel(ops, gha, "push / Pull Request")
-```
-
-### C4 — Nível 3 (Component) do Core: esboço preparando o Desafio 2
-
-Os componentes **sólidos** já existem no código. **Ranking** e **Conquistas** são o desenho-alvo
-e só dependem de `StudentProgressionApi`, nunca de `progression.internal`.
-
-```mermaid
-C4Component
-  title Core API — Componentes (esboço para o Desafio 2)
-
-  Container(spa, "Front-end", "Vue 3")
-  ContainerDb(db, "Banco relacional", "PostgreSQL 16")
-
-  Container_Boundary(core, "Core API (Spring Boot)") {
-    Component(ctrl, "StudentController + ApiExceptionHandler", "Spring MVC (pacote web)", "REST /students; usa só progression.api")
-    Component(api, "StudentProgressionApi", "Interface Java (progression.api)", "Fachada pública do módulo: DTOs, Level, StudentNotFoundException")
-    Component(svc, "StudentService", "Spring @Service (progression.internal)", "Orquestra domínio e persistência")
-    Component(dom, "Student / LevelUpEvent", "POJO (progression.internal.domain)", "Regra de XP e níveis")
-    Component(repo, "StudentRepository + entities", "Spring Data JPA (progression.internal.persistence)", "students, level_up_events")
-    Component(rank, "Módulo ranking (futuro, RF01)", "ranking.api / ranking.internal", "Consulta ordenada por XP, paginada, com cache")
-    Component(conq, "Módulo conquistas (futuro, RF02)", "conquistas.api / conquistas.internal", "Reage a eventos de progressão (ApplicationEvent)")
-  }
-
-  Rel(spa, ctrl, "JSON/HTTP")
-  Rel(ctrl, api, "Chama")
-  Rel(svc, api, "Implementa")
-  Rel(svc, dom, "Usa")
-  Rel(svc, repo, "Usa")
-  Rel(repo, db, "JPA/JDBC")
-  Rel(rank, api, "Consulta alunos/XP (em memória)")
-  Rel(conq, api, "Escuta eventos de level-up (em memória)")
-```
-
----
-
-## 12. Rastreabilidade
-
-| RF | RNF | ASR + RPC | Alternativa escolhida e trade-off | ADR | C4 | Evidência |
-|---|---|---|---|---|---|---|
-| RF01 Ranking (futuro; fonte de dados: `xp_total` em `StudentEntity`) | Desempenho, Escalabilidade | ASR2 + RPC3 (banco único) | B: índice, cache e réplicas *stateless*; extração só com gatilhos G1–G5 (§6) | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), Decisão item 5 | Component: "Módulo ranking (futuro)" → `StudentProgressionApi` | Módulo `progression` isolado (§7); dívida N+1 registrada no ADR |
-| RF02 Conquistas (futuro; base: `LevelUpEvent`) | Manutenibilidade | ASR1 + RPC1 (Spring) | B: módulo próprio reagindo a eventos em processo, sem rede | ADR-001, Decisão item 4 | Component: "Módulo conquistas (futuro)" | `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
-| RF-EVO Progressão (US1–US4, `/students`) | Manutenibilidade, Testabilidade | ASR1 + ASR3 + RPC2 (6 devs) + RPC3 (legado) | B: `progression.api` + `progression.internal`; contrato externo intacto | ADR-001, Decisão itens 1–4 | Container (inalterado) + Component (`StudentController` → `StudentProgressionApi` ← `StudentService`) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java), [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java), [CI](../../.github/workflows/ci.yml), [JaCoCo antes](evidencias/jacoco-antes.csv)/[depois](evidencias/jacoco-depois.csv) |
-| (todos) | Complexidade operacional | Restrição (RPC2 + RPC3) | B mantém 1 jar, 1 banco, 1 pipeline; C rejeitada | ADR-001, Alternativas | Container: nenhum container novo | [`ci.yml`](../../.github/workflows/ci.yml) único; `docker-compose.yml` inalterado |
-
-## 13. Índice de artefatos
-
-| Artefato | Caminho |
-|---|---|
-| ADR | [`docs/arquitetura/adr/ADR-001-estilo-arquitetural-core.md`](adr/ADR-001-estilo-arquitetural-core.md) |
-| Diagramas | Seção 7 (dependências antes/depois), seção 11 (C4 Container e Component) |
-| Fachada do módulo | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java) |
-| Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
-| Testes do módulo | [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) |
-| Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
-| Relatório de cobertura | Artifact `jacoco-report` de cada run do CI; local em `target/site/jacoco/index.html`; CSVs em [`evidencias/`](evidencias/) |
-| Prova de violação barrada | [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt) |
