@@ -49,7 +49,7 @@ ficam em [`evidencias/img/`](evidencias/img/), com o prefixo do desafio (`d1-`, 
 
 ## Matriz cumulativa de ASRs
 
-A numeração é global: novos desafios continuam a partir da ASR6.
+A numeração é global: novos desafios continuam a partir da ASR9.
 
 | ASR | Desafio de origem | RNF / FURPS+ | Decisão / ADR | Evidência | Status |
 |---|---|---|---|---|---|
@@ -58,6 +58,9 @@ A numeração é global: novos desafios continuam a partir da ASR6.
 | **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
 | **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-runs.png) | **Atendido** |
 | **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-runs.png) | **Atendido** |
+| **ASR6** — Indisponibilidade da IA não bloqueia o Core | Desafio 3 | Tolerância a falhas e Desempenho / R, P | Timeout, circuit breaker e fallback, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`RecomendacaoEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/RecomendacaoEndpointIntegrationTest.java); [roteiro](evidencias/d3-roteiro.txt); [falhas simuladas](evidencias/d3-falhas-simuladas.txt) | **Atendido** |
+| **ASR7** — IA publicada e escalada sem o Core | Desafio 3 | Deploy independente e Escalabilidade / +, P | Serviço Python independente, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`Dockerfile`](../../labs/desafio-3/ia-service/Dockerfile); job `ia-service` no [`ci.yml`](../../.github/workflows/ci.yml) | **Parcial:** deploy independente demonstrado; escala sem teste de carga; job ainda sem run no GitHub |
+| **ASR8** — Contrato HTTP/JSON verificável pelos dois lados | Desafio 3 | Interoperabilidade / + | Contrato versionado, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`contract/`](../../labs/desafio-3/ia-service/contract/), usado por [`test_api.py`](../../labs/desafio-3/ia-service/tests/test_api.py) e [`IaRecommendationAdapterTest`](../../src/test/java/org/example/ac1devops/recomendacao/internal/adapter/http/IaRecommendationAdapterTest.java) | **Atendido** |
 
 ---
 
@@ -770,7 +773,7 @@ concorrência, e requisições simultâneas sobrescreviam o XP umas das outras.
 | 10 rodadas de 40 POST de 50 XP no mesmo aluno, em PostgreSQL 16 | Antes | Depois |
 |---|---|---|
 | XP aplicado, de 2.000 | 150 a 350 | **2.000 em todas** |
-| Level-ups por aluno (correto: 3) | 9 a 13 | **3 em todas** |
+| Level-ups por aluno (correto: 3) | 6 a 13 | **3 em todas** |
 | Badges por aluno | 3, em desacordo com os 2.000 XP enviados | **5, nenhum repetido** |
 | Respostas | 400 de 400 com 200, mesmo perdendo XP | **400 de 400 com 200, com o XP aplicado** |
 
@@ -800,45 +803,230 @@ Run #2 do workflow `CI`, no commit `03007e1`: **Success**. O **aviso de Node.js 
 
 ---
 
-## Desafio 3
+## Desafio 3 — Serviço Python e IA
 
-> **Status:** aguardando enunciado.
+Onde fica a fronteira de ML e RAG/LLM, se os modelos são feitos em Python, têm ciclo de atualização próprio e
+carga variável e podem ficar indisponíveis sem impedir as operações essenciais do Core.
 
 ### 1. RF
 
-A preencher.
+> **Numeração:** RF03 e RF04 seguem o enunciado deste desafio. Não confundir com os RF03 e RF04 do Desafio 1
+> (cadastrar aluno e conceder XP).
+
+| RF | Estado | Classes / endpoints reais | Efeito deste desafio |
+|---|---|---|---|
+| **RF03 — Recomendação inteligente** | **Existe, com regra simulada.** | Core: `GET /recomendacoes/students/{id}` → `RecomendacaoController` → `RecomendacaoApi` → `RecommendationService` → `RecommendationPort` ← `IaRecommendationAdapter`. Serviço: `POST /recomendacoes` | Módulo novo `recomendacao` e serviço novo em [`labs/desafio-3/ia-service`](../../labs/desafio-3/ia-service/). |
+| **RF04 — Assistente educacional** | **Parcial.** Só no serviço, com resposta simulada. | Serviço: `POST /assistente`. O Core ainda não consome. | Define a fronteira; a integração fica para quando houver necessidade. |
+
+A regra de recomendação é determinística: cursos do nível do aluno, depois dos níveis seguintes, sem repetir os
+concluídos. O catálogo do serviço e a lista de cursos populares são **propostas da equipe**, porque o Core ainda
+não tem cursos nem dados de popularidade.
 
 ### 2. RNF (FURPS+)
 
-A preencher.
+| RNF | FURPS+ | Meta mensurável | Resultado |
+|---|---|---|---|
+| **Tolerância a falhas** | R (Reliability) | Serviço fora do ar ou lento: recomendações respondem 200 em até 1,5 s, e o fluxo essencial não muda | Atendida: 0,02 s fora do ar; 0,82 s lento; 0,007 s com o circuito aberto |
+| **Desempenho** | P (Performance) | Espera máxima limitada pelo timeout, e sem espera com o circuito aberto | Atendida no ambiente local: 5,03 s direto no serviço lento contra 0,82 s pelo Core |
+| **Escalabilidade** | P (Performance: capacidade) | Réplicas da IA sem réplicas do Core | **Só habilitada pela estrutura:** nenhum teste de carga foi feito |
+| **Deploy independente** | + (restrição de implantação) | Imagem e pipeline próprios; Core sobe e responde sem a IA | Atendida: imagem própria, job próprio no CI e serviço reiniciado sem reiniciar o Core |
+| **Interoperabilidade** | + (requisito de interface) | Contrato verificado pelos dois lados | Atendida: mesmos JSON nos testes pytest e Java |
+| **Manutenibilidade** | S (Supportability) | Domínio sem Spring nem HTTP; 0 violações do ArchUnit | Atendida: 10 regras verdes |
 
 ### 3. ASR
 
-A preencher.
+| ASR | RNF de origem | Como altera a arquitetura (uma frase) |
+|---|---|---|
+| **ASR6 — Indisponibilidade da IA não bloqueia o Core** | Tolerância a falhas e Desempenho | Altera a **comunicação**: toda chamada à IA tem timeout curto, circuit breaker e uma resposta degradada definida pelo domínio. |
+| **ASR7 — IA publicada e escalada sem o Core** | Deploy independente e Escalabilidade | Altera a **implantação**: a IA vira um contêiner próprio, com imagem e job de CI próprios. |
+| **ASR8 — Contrato HTTP/JSON verificável pelos dois lados** | Interoperabilidade | Altera a **operação**: o contrato vira arquivos versionados, verificados pelos testes das duas linguagens em todo build. |
+
+Manutenibilidade não gera ASR novo: já está coberta pelas ASR1 e ASR4.
 
 ### 4. RPC
 
-A preencher.
+| RPC | Restrição | Impacto na decisão |
+|---|---|---|
+| **RPC1** | Core permanece em Java/Spring Boot. | A IA não entra no processo do Core em outra linguagem. |
+| **RPC7** | ML e RAG em Python. | Exige uma fronteira com o Core, seja de processo ou de serviço. |
+| **RPC8** | A indisponibilidade da IA não pode bloquear o fluxo essencial. | Limita o quanto o Core pode esperar e o que pode depender da IA. |
 
 ### 5. Decisão do Tech Lead
 
-A preencher.
+**Python por si só justifica um serviço?** **Não.** A linguagem poderia ser resolvida exportando o modelo para a
+JVM ou gerando recomendações em lote. O serviço se justifica por ciclo de atualização próprio, carga variável e
+falhas que não podem alcançar o Core.
+
+**ML e RAG precisam da mesma fronteira?** **Não precisam, mas podem compartilhar enquanto nada exigir o contrário.**
+Eles têm naturezas diferentes:
+
+| Aspecto | ML (recomendação) | RAG/LLM (assistente) |
+|---|---|---|
+| Latência esperada | Milissegundos | Segundos |
+| Dependências | Modelo treinado | Base vetorial e provedor de LLM |
+| Atualização | Novo treino | Novos documentos ou troca de LLM |
+| Custo | Principalmente de infraestrutura | Também por uso, se o LLM for externo |
+| Sem o serviço | Lista de populares | Aviso de indisponibilidade |
+
+A decisão é **um serviço com rotas separadas e sem estado compartilhado**, porque hoje as duas funções são simulações
+e dois serviços trariam custo sem problema medido. No Core, cada função terá timeout e circuit breaker próprios.
+Separar será reavaliado por critérios medidos (ver [ADR-003](adr/ADR-003-servico-python-de-ia.md)).
+
+**Quais ASRs justificam autonomia e escala?** As **ASR6 e ASR7**: a IA precisa falhar, ser atualizada e escalar sem o
+Core. Isso atende ao critério do ADR-001, que pedia necessidade concreta de deploy e escala independentes. A ASR8 é o
+custo dessa autonomia: com dois processos, o contrato precisa ser verificado.
+
+**Qual comportamento degradado é aceitável?**
+
+| Situação | Comportamento | Aceitável? |
+|---|---|---|
+| Recomendação com a IA fora do ar ou lenta | Cursos populares, com `degraded: true` e HTTP 200 | **Sim** |
+| Assistente com a IA fora do ar (quando integrado) | Aviso claro de indisponibilidade | **Sim** |
+| XP, level-up, ranking e conquistas | Sem qualquer alteração, pois não chamam a IA | **Obrigatório** |
+| Erro 500 ou espera longa para o aluno | — | Não |
+| Inventar uma resposta do assistente | — | Não: o aluno tomaria uma simulação por resposta real |
+| Esconder que a resposta está degradada | — | Não: o cliente precisa poder distinguir |
+
+**Decisão:** **serviço Python independente**, com comunicação HTTP/JSON, timeouts curtos, circuit breaker e modo
+degradado no Core. Registro formal no [ADR-003](adr/ADR-003-servico-python-de-ia.md).
 
 ### 6. Alternativas e trade-offs
 
-A preencher.
+| Critério | (A) IA embutida no Core | (B) Módulo acoplado | (C) Serviço Python independente |
+|---|---|---|---|
+| Ciclo de atualização | Modelo novo exige publicar o Core | Publicação única | **Independente** |
+| Escala | Do conjunto | Do conjunto | **Da IA, separadamente** |
+| Falha da IA | Atinge o processo do Core | Atinge o processo ou contêiner do Core | **Isolada, tratada com timeout e fallback** |
+| Python e bibliotecas de ML | Limitado ao que roda na JVM | Atende | **Atende** |
+| Latência da chamada | Sem rede | Pequena | Com rede (cerca de 20 ms medidos localmente) |
+| Complexidade operacional | Mínima | Média | Maior: 2 imagens, 2 jobs de CI e contrato |
+| Aderência às RPCs | Conflita com a RPC7 | Conflita com a RPC8 | **Atende** |
+
+| ML e RAG | Juntos em um serviço (escolhido) | Em dois serviços |
+|---|---|---|
+| Operação | **1 imagem e 1 job** | 2 imagens e 2 jobs |
+| Escala | Do conjunto: uma função pode pressionar a outra | Por função |
+| Publicação | Em conjunto | Independente |
+| Quando faz sentido | **Enquanto não houver diferença medida** | Quando os critérios do ADR-003 forem atingidos |
 
 ### 7. ADR
 
-A preencher.
+[**ADR-003 — Serviço Python independente para IA, com modo degradado no Core**](adr/ADR-003-servico-python-de-ia.md)
+— status **Aceito**, 2026-11-02.
 
 ### 8. C4
 
-A preencher.
+Nível afetado: **Container**. Os demais níveis seguem como nos desafios anteriores.
+
+```mermaid
+C4Container
+  title Educação Continuada Gamificada — Containers com o serviço de IA
+
+  Person(aluno, "Aluno")
+  Person(equipe, "Equipe (6 devs)")
+
+  System_Boundary(plataforma, "Plataforma") {
+    Container(spa, "Front-end", "Vue 3 via CDN", "Servido pelo próprio Core")
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 — Monólito Modular", "Fluxo essencial e módulo recomendacao, com circuit breaker e fallback")
+    ContainerDb(db, "Banco relacional", "PostgreSQL 16", "students, level_up_events, student_badges")
+    Container(ia, "Serviço de IA", "Python 3.14, FastAPI", "POST /recomendacoes, POST /assistente (simulado), GET /health. Imagem própria e escala independente")
+  }
+
+  System_Ext(gha, "GitHub Actions", "Job do Core e job do serviço de IA")
+
+  Rel(aluno, spa, "Usa", "HTTPS")
+  Rel(spa, core, "Chama /students", "JSON/HTTP")
+  Rel(core, db, "Lê e escreve", "JPA/JDBC")
+  Rel(core, ia, "Pede recomendações; opcional para o Core", "HTTP/JSON síncrono; connect 300 ms, read 800 ms")
+  Rel(equipe, gha, "push / Pull Request")
+```
+
+**Protocolo:** HTTP/JSON síncrono, com connect timeout de 300 ms e read timeout de 800 ms. Sem resposta dentro do
+limite, o Core usa a lista de populares. Os contratos estão em
+[`contract/`](../../labs/desafio-3/ia-service/contract/). O endereço vem de `IA_SERVICE_URL`.
+
+Prometheus e Grafana seguem planejados (Desafio 1, item 9.6) e foram omitidos aqui para destacar a mudança.
 
 ### 9. Evidência
 
-A preencher.
+**Hipótese testada:** com a IA fora do Core e o cliente protegido por timeout, circuit breaker e fallback, a queda ou a
+lentidão do serviço não bloqueiam o fluxo essencial, e as recomendações seguem respondendo em tempo limitado.
+
+| # | O que se testa | Como reproduzir | Resultado obtido |
+|---|---|---|---|
+| 1 | Serviço fora do ar (automatizado) | `mvnw.cmd test -Dtest=RecomendacaoEndpointIntegrationTest` | Com o WireMock derrubado, o endpoint responde **200 degradado** em menos de 1,5 s, e XP, aluno, ranking e conquistas seguem com 200. |
+| 2 | Lentidão, erro, conexão perdida, resposta inválida | `mvnw.cmd test -Dtest=IaRecommendationAdapterTest` | **7 testes verdes.** Todas as falhas viram indisponibilidade, e o timeout é respeitado. |
+| 3 | Circuit breaker | Mesmo comando | Depois de 5 falhas o circuito **abre e o serviço não recebe mais chamadas**; quando volta, o circuito fecha sozinho. |
+| 4 | Regra degradada sem Spring | `mvnw.cmd test -Dtest=RecommendationServiceTest` | 3 testes com portas falsas, em 0,01 s. |
+| 5 | Os testes detectam a quebra | Remover o fallback ou criar em `ranking` uma dependência de `recomendacao` | Build **falha nos dois casos**: [`d3-falhas-simuladas.txt`](evidencias/d3-falhas-simuladas.txt). |
+| 6 | Contrato nos dois lados | `pytest` e `IaRecommendationAdapterTest` | Os mesmos JSON são verificados contra o serviço real e pelo stub. |
+| 7 | Serviço em Python | `cd labs\desafio-3\ia-service`, `pip install -r requirements-dev.txt`, `pytest` | **12 testes verdes**. |
+| 8 | Roteiro manual, com a imagem real | Comandos abaixo | Tabela abaixo e [`d3-roteiro.txt`](evidencias/d3-roteiro.txt). |
+| 9 | Stack completa | `docker compose up -d --build` | App, PostgreSQL e serviço sobem juntos: `degraded: false` e, depois de parar o serviço, `degraded: true`, com XP em 200. Testado em portas alternativas, porque a 5432 está ocupada nesta máquina. |
+| 10 | Build completo | `mvnw.cmd -B clean verify` | **101 testes**, 0 falhas. **100%** de cobertura: linhas 334/334, branches 32/32. |
+
+#### Resultados do roteiro
+
+Medidos com `curl` em 2026-11-02, sem carga, em execução única.
+
+| Situação | Tempo de resposta | Resposta |
+|---|---|---|
+| Serviço no ar, primeira chamada | 0,41 s | Recomendação da IA, `degraded: false` |
+| Serviço no ar, chamadas seguintes | 0,02 s | Recomendação da IA, `degraded: false` |
+| Serviço fora do ar | 0,01 a 0,03 s | Populares, `degraded: true` |
+| XP, aluno, ranking e conquistas com o serviço fora do ar | 0,01 a 0,05 s | HTTP 200, sem alteração |
+| Serviço lento (5 s), chamada direta, **sem proteção** | **5,03 s** | — |
+| Serviço lento, pelo Core, antes de o circuito abrir | **0,82 s** | Populares, `degraded: true` |
+| Serviço lento, pelo Core, com o circuito aberto | **0,007 s** | Populares, `degraded: true` |
+| Serviço de volta, circuito ainda aberto | 0,03 s | Populares, `degraded: true` |
+| Serviço de volta, depois de 30 s | 0,30 s e depois 0,03 s | Recomendação da IA, `degraded: false` |
+
+#### Roteiro manual
+
+Comandos em PowerShell, na raiz do projeto. Usa o banco H2 e as portas 8000 e 8080.
+
+```powershell
+# Terminal 1: sobe o servico de IA
+docker build -t ia-service:lab labs/desafio-3/ia-service
+docker run -d --rm --name ia-service -p 8000:8000 ia-service:lab
+curl.exe -s http://localhost:8000/health
+
+# Terminal 2: sobe o Core
+.\mvnw.cmd -B package -DskipTests
+$env:SPRING_PROFILES_ACTIVE="h2"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+
+# Terminal 1: cria um aluno, da XP e pede recomendacoes com o servico no ar
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/students -ContentType application/json -Body '{"name":"Aluno Roteiro"}' | ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/students/1/xp -ContentType application/json -Body '{"reason":"DESAFIO","amount":150}' | ConvertTo-Json -Compress
+curl.exe -s -w "`nHTTP %{http_code} em %{time_total}s`n" http://localhost:8080/recomendacoes/students/1
+
+# Derruba o servico e chama de novo: a resposta muda para degraded=true
+docker stop ia-service
+curl.exe -s -w "`nHTTP %{http_code} em %{time_total}s`n" http://localhost:8080/recomendacoes/students/1
+
+# Fluxo essencial com o servico fora do ar
+curl.exe -s -o NUL -w "XP: HTTP %{http_code} em %{time_total}s`n" -X POST http://localhost:8080/students/1/xp -H "Content-Type: application/json" --data-binary "@labs/desafio-3/xp-exemplo.json"
+curl.exe -s -o NUL -w "Ranking: HTTP %{http_code} em %{time_total}s`n" http://localhost:8080/ranking
+
+# Opcional: servico lento. Primeiro direto (5 s) e depois pelo Core (depois de 30 s, 5 vezes)
+docker run -d --rm --name ia-service -e IA_DELAY_MS=5000 -p 8000:8000 ia-service:lab
+curl.exe -s -o NUL -w "Direto: %{time_total}s`n" -X POST http://localhost:8000/recomendacoes -H "Content-Type: application/json" --data-binary "@labs/desafio-3/ia-service/contract/recomendacoes-requisicao.json"
+curl.exe -s -o NUL -w "Pelo Core: %{time_total}s`n" http://localhost:8080/recomendacoes/students/1
+docker stop ia-service
+```
+
+#### Limites desta evidência
+
+- **Simulação:** o serviço usa uma regra determinística, sem modelo, GPU ou LLM. A evidência testa a fronteira, não a
+  qualidade das recomendações.
+- **Carga variável:** nenhum teste de carga foi feito, e a escala independente foi apenas habilitada pela estrutura.
+- **Threads:** não há bulkhead. Antes de o circuito abrir, requisições simultâneas podem ocupar threads do Core por até
+  0,8 s cada.
+- **Read timeout:** limita a espera até o início da resposta; um corpo enviado muito lentamente não é coberto.
+- **Réplicas:** o estado do circuito é por instância do Core.
+- **Tempos:** são de uma execução, em ambiente local; valem como ordem de grandeza.
+- **Aviso nos testes pytest:** o Starlette avisa que o uso de `httpx` no cliente de testes está depreciado. Não afeta os
+  resultados.
 
 ---
 
@@ -980,10 +1168,11 @@ A consolidar ao fim do Desafio 6, a partir da matriz cumulativa de ASRs.
 | Artefato | Caminho |
 |---|---|
 | Repositório | <https://github.com/GuilhermDias/AC1-Devops> |
-| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) |
-| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component) |
-| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java) |
+| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md) |
+| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component). Desafio 3: item 8 (Container) |
+| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java), [`RecomendacaoApi`](../../src/main/java/org/example/ac1devops/recomendacao/api/RecomendacaoApi.java) |
 | Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
 | Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
+| Serviço de IA | [`labs/desafio-3/ia-service`](../../labs/desafio-3/ia-service/) |
 | Relatório de cobertura | Artifact `jacoco-report` de cada run do CI; local em `target/site/jacoco/index.html`; CSVs em [`evidencias/`](evidencias/) |
 | Prova de violação barrada | [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt) |
