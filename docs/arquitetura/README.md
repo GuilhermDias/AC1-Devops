@@ -49,13 +49,15 @@ ficam em [`evidencias/img/`](evidencias/img/), com o prefixo do desafio (`d1-`, 
 
 ## Matriz cumulativa de ASRs
 
-A numeração é global: novos desafios continuam a partir da ASR4.
+A numeração é global: novos desafios continuam a partir da ASR6.
 
 | ASR | Desafio de origem | RNF / FURPS+ | Decisão / ADR | Evidência | Status |
 |---|---|---|---|---|---|
 | **ASR1** — Evoluir funcionalidades com baixo acoplamento | Desafio 1 | Manutenibilidade / S | Monólito Modular, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); mini-lab (item 9.8) | **Atendido** |
 | **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4) | **Parcial:** medido só em H2, sem carga e sem p95; observabilidade não implementada |
 | **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
+| **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt) | **Atendido** |
+| **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt) | **Atendido** |
 
 ---
 
@@ -64,12 +66,15 @@ A numeração é global: novos desafios continuam a partir da ASR4.
 Como o Core deve evoluir quando o MVP cresce de 1.000 para até 100.000 usuários, com o Ranking
 crescendo mais que as demais funcionalidades.
 
+> Retrato do fim do Desafio 1. Mudanças posteriores estão no desafio correspondente; os totais de testes e
+> cobertura vigentes estão na evidência do desafio mais recente.
+
 ### 1. RF
 
 | RF | Estado | Classes / endpoints reais | Onde entra na arquitetura |
 |---|---|---|---|
 | **RF01 — Ranking** | **Existe.** | `GET /ranking?page&size`, `GET /ranking/top?n`, `GET /ranking/students/{id}` → `RankingController` → `RankingApi` (impl. `RankingService`) → `StudentProgressionApi.listByScore` / `getScore` / `countStudentsAhead` → `StudentRepository.findScoresOrderedByXp` / `countAhead`. DTOs `RankingEntryDTO`, `RankingPageDTO`; `400` via `InvalidRankingQueryException`. | Módulo `ranking` (`ranking.api` + `ranking.internal`), que consome **apenas** `StudentProgressionApi`; ordenação e paginação no banco, índice `idx_students_xp_total` e cache do top N (item 9.4). |
-| **RF02 — Conquistas** | **Planejado.** Não implementado nesta etapa (ver item 9.2). | Conceito mais próximo: histórico de level-up — `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão em processo (Spring `ApplicationEvent`), sem chamada remota. |
+| **RF02 — Conquistas** | **Planejado no Desafio 1**; badges implementados no [Desafio 2](#desafio-2--organização-interna-do-core). | Conceito mais próximo: histórico de level-up — `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão em processo (Spring `ApplicationEvent`), sem chamada remota. |
 | **RF03 — Cadastrar aluno** (US4) | **Existe.** | `POST /students` → `StudentController.createStudent` → `StudentProgressionApi.createStudent` (impl. `StudentService`) → `StudentRepository.save`. DTO `CreateStudentRequestDTO`. | Módulo `progression`. |
 | **RF04 — Conceder XP e subir de nível** (US1, US2, US3) | **Existe.** | `POST /students/{id}/xp` → `StudentController.receiveXp` → `StudentService.receiveXp`; regra em `Student.receiveXp` + `Level.fromXp` (BRONZE 0, PRATA 100, OURO 300, DIAMANTE 700); um `LevelUpEvent` por faixa atravessada. DTO `ReceiveXpRequestDTO`. | Módulo `progression` (domínio em `progression.internal.domain`). |
 | **RF05 — Consultar perfil do aluno** (US4) | **Existe.** | `GET /students/{id}` → `StudentController.getStudent` → `StudentService.getStudent`; `404` via `StudentNotFoundException` + `ApiExceptionHandler`. DTOs `StudentResponseDTO`, `LevelUpEventDTO`. | Módulo `progression`. |
@@ -295,7 +300,7 @@ Executado em 2026-11-02, Windows 11, Java 21.0.12, sobre o commit desta branch.
 `api/` + `internal/`, consumidos pela camada `web`. O `ranking` usa apenas `StudentProgressionApi` e
 recebe `StudentScoreChangedEvent` em processo para invalidar o cache.
 
-**Não implementado:** módulo `conquistas` (RF02), cursos e recompensas (RF-EVO), observabilidade
+**Não implementado ao fim do Desafio 1:** módulo `conquistas` (RF02, entregue no Desafio 2), cursos e recompensas (RF-EVO), observabilidade
 (item 9.6). O front-end Vue ainda consome só `/students`; o ranking é acessível pela API e pelo
 Swagger.
 
@@ -554,7 +559,7 @@ anterior no repositório).
 | RF | RNF | ASR | RPC | ADR | C4 | Evidência no código |
 |---|---|---|---|---|---|---|
 | RF01 Ranking (`/ranking`) | Desempenho, Escalabilidade, Observabilidade | ASR2 | RPC3 (banco único), RPC4 (legado) | ADR-001, Decisão itens 4–6 + gatilhos G1–G5 | Component: `RankingController` → `RankingApi` ← `RankingService` → `StudentProgressionApi`; Container: Prometheus/Grafana | [`RankingService`](../../src/main/java/org/example/ac1devops/ranking/internal/RankingService.java), [`StudentRepository`](../../src/main/java/org/example/ac1devops/progression/internal/persistence/StudentRepository.java), índice em [`StudentEntity`](../../src/main/java/org/example/ac1devops/progression/internal/persistence/StudentEntity.java), [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java), [`RankingCacheIntegrationTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingCacheIntegrationTest.java) |
-| RF02 Conquistas (planejado; base: `LevelUpEvent`) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` (planejado) | `StudentScoreChangedEvent` (mecanismo de eventos já usado pelo ranking); `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
+| RF02 Conquistas (planejado no Desafio 1; badges implementados no Desafio 2) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` (planejado) | `StudentScoreChangedEvent` (mecanismo de eventos já usado pelo ranking); `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
 | RF03–RF06 Progressão (`/students`, US1–US4) | Manutenibilidade, Testabilidade | ASR1, ASR3 | RPC2 (6 devs), RPC4 (legado) | ADR-001, Decisão itens 1–4 | Component: `StudentController` → `StudentProgressionApi` ← `StudentService` | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java), [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) |
 | (todos) | Testabilidade (cobertura 100%) | ASR3 | RPC4 (cobertura herdada) | ADR-001, Consequências | Context/Container: GitHub Actions | `jacoco:check` no [`pom.xml`](../../pom.xml), [`ci.yml`](../../.github/workflows/ci.yml) |
 | (todos) | Observabilidade | ASR2 (meio de verificação) | RPC1 (Actuator/Micrometer da stack) | ADR-001, Decisão item 6 | Container: Prometheus, Grafana; Component: Métricas | Não implementado: item 9.6 |
@@ -562,45 +567,209 @@ anterior no repositório).
 
 ---
 
-## Desafio 2
+## Desafio 2 — Organização interna do Core
 
-> **Status:** aguardando enunciado.
+Como proteger o domínio contra dependências técnicas, se as regras de ranking, moedas, badges e
+recompensas mudam com frequência.
 
 ### 1. RF
 
-A preencher.
+| RF | Estado | Classes / endpoints reais | Efeito deste desafio |
+|---|---|---|---|
+| **RF01 — Ranking** | **Existe.** | `GET /ranking`, `/ranking/top`, `/ranking/students/{id}`; ordenação em `StudentRepository` | Nenhuma mudança: a estrutura foi avaliada e mantida (item 5). |
+| **RF02 — Conquistas e regras de gamificação** | **Existe (badges).** Moedas e recompensas seguem planejadas. | `GET /conquistas/students/{id}` → `ConquistasController` → `ConquistasApi`; concessão por `StudentScoreChangedEvent` → `StudentScoreEventListener` → `BadgeAwardService` | Módulo novo `conquistas`. |
+
+O case não define quais badges existem, então o catálogo em
+[`BadgeRules`](../../src/main/java/org/example/ac1devops/conquistas/internal/domain/BadgeRules.java) é
+uma **proposta técnica** a validar com o produto:
+
+| Badge | Condição |
+|---|---|
+| `PRIMEIROS_PASSOS` | XP total ≥ 1 |
+| `NIVEL_PRATA`, `NIVEL_OURO`, `NIVEL_DIAMANTE` | Nível alcançado, pela regra existente `Level.fromXp` |
+| `MIL_XP` | XP total ≥ 1000 |
 
 ### 2. RNF (FURPS+)
 
-A preencher.
+| RNF | FURPS+ | Meta mensurável | Resultado |
+|---|---|---|---|
+| **Modificabilidade** | S (Supportability) | Regra nova sem alterar porta, adapters ou schema | Atendida: cenário `deveAplicarRegraNovaSemAlterarOAdapter` nos dois adapters |
+| **Testabilidade** | S (Supportability) | Todos os cenários da regra rodam sem Spring nem banco | Atendida: 9 cenários em 0,3 s, sem contexto Spring |
+| **Manutenibilidade** | S (Supportability) | 0 violações das regras do ArchUnit | Atendida: 9 regras verdes |
+| **Facilidade de evolução** | S (Supportability) | Módulo novo sem mudar contratos existentes | Atendida: `/students` e `/ranking` mantidos; `progression` não conhece `conquistas` |
 
 ### 3. ASR
 
-A preencher.
+| ASR | RNF de origem | Como altera a arquitetura (uma frase) |
+|---|---|---|
+| **ASR4 — Mudar regra de gamificação sem tocar em persistência ou framework** | Modificabilidade | Altera a **estrutura**: a regra fica em um domínio puro e a dependência com a persistência é invertida por uma porta. |
+| **ASR5 — Regra de gamificação testável sem Spring nem banco** | Testabilidade | Altera a **operação**: a regra é verificada em todo build por um contrato executado com um adapter em memória, sem subir infraestrutura. |
+
+Manutenibilidade e facilidade de evolução não geram ASR novo: já estão cobertas pela ASR1, e as
+fronteiras, pela ASR3.
 
 ### 4. RPC
 
-A preencher.
+| RPC | Restrição | Impacto na decisão |
+|---|---|---|
+| **RPC1** | Core continua em Java 21 / Spring Boot. | O Spring permanece nas bordas do módulo; não há troca de framework. |
+| **RPC5** | Regras existentes devem ser reaproveitadas. | `Level.fromXp` é reusada, e não reescrita, nas regras de nível. |
+| **RPC6** | Proibido reescrever o produto inteiro só para aplicar um padrão. | `progression` e `ranking` mantêm a estrutura atual. |
 
 ### 5. Decisão do Tech Lead
 
-A preencher.
+**Qual dependência realmente precisa ser invertida?** Apenas **regra de concessão de badges →
+persistência**, porque é a única combinação de regra volátil com dependência técnica.
+
+| Dependência | Inverter? | Motivo |
+|---|---|---|
+| Concessão de badges → persistência | **Sim** | A regra muda com frequência e não pode exigir banco para ser testada. |
+| XP e níveis → persistência | Não | A regra já é POJO puro e estável; o `StudentService` faz a ponte. |
+| Ordenação do ranking → banco | Não | É uma decisão de desempenho: ordenar no domínio carregaria 100.000 linhas em memória, contrariando a ASR2. |
+| Domínio → Spring | Já não existe | Verificado por ArchUnit. O Spring fica nas bordas. |
+| Integrações externas | Não | Nenhuma existe no código; uma porta agora seria especulativa. |
+
+**O custo estrutural é proporcional ao problema?** Sim, porque ficou limitado a um módulo. Conquistas tem
+15 arquivos e 336 linhas: 6 arquivos de domínio e porta (116 linhas), 4 de adapters (127) e 5 de API,
+aplicação e controller (93). Fora do módulo, só mudaram 8 linhas do `StudentService`. O retorno é a regra
+testada em 0,3 s e alterável sem tocar nos adapters. Em `progression` o mesmo custo não teria retorno,
+pois a regra já é pura e estável.
+
+**DDD, Hexagonal, Clean e Onion são concorrentes ou podem ser combinados?** Podem ser combinados, pois
+respondem a perguntas diferentes. DDD trata de **como modelar** o domínio e suas fronteiras. Hexagonal,
+Clean e Onion tratam de **para onde apontam as dependências** e, entre si, são variações da mesma ideia:
+são alternativas umas às outras, mas não ao DDD. Aqui se usa só o necessário (item 6).
+
+**Decisão:** Ports & Adapters **somente em `conquistas`**, com os demais módulos inalterados. Registro
+formal no [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md).
 
 ### 6. Alternativas e trade-offs
 
-A preencher.
+| Critério | (A) Modular com camadas | (B) Ports & Adapters só em Conquistas | (C) Hexagonal em todo o Core |
+|---|---|---|---|
+| Mudar uma regra | Possível, mas nada impede a regra de depender do banco | **Alteração só no catálogo do domínio** | Igual a B, inclusive onde a regra não muda |
+| Testar a regra | Exige mocks ou banco | **Sem Spring nem banco** | Sem Spring nem banco |
+| Custo estrutural | Menor | **Limitado a um módulo** | Alto: reescreve `progression` e `ranking` |
+| Desempenho do ranking | Mantido | **Mantido** | Em risco, se a ordenação for ao domínio (ASR2) |
+| Aderência às RPCs | Atende | **Atende** | Conflita com a RPC6 |
+| Contra principal | Regra acoplada à persistência | Duas organizações internas no Core | Custo sem problema correspondente |
+
+Uso de cada abordagem:
+
+| Abordagem | Usada? | Justificativa |
+|---|---|---|
+| **Ports & Adapters / Hexagonal** | **Sim, em `conquistas`** | Resolve o problema do case com uma porta e dois adapters. |
+| **DDD estratégico** | Parcial | O módulo já funciona como fronteira de contexto, e o código usa a linguagem do domínio. |
+| **DDD tático** | Parcial | `Badge` e `StudentProgress` são objetos de valor, e `BadgeAwardService` é um serviço de domínio. Agregados e eventos de domínio próprios não se justificam em uma regra tão pequena. |
+| **Clean Architecture** | Não | Casos de uso e presenters como camadas próprias não resolvem problema algum neste módulo. |
+| **Onion** | Não | Tem a mesma direção de dependência do Hexagonal, com mais anéis nomeados. |
 
 ### 7. ADR
 
-A preencher.
+[**ADR-002 — Ports & Adapters só onde a regra muda: módulo Conquistas**](adr/ADR-002-ports-and-adapters-em-conquistas.md)
+— status **Aceito**, 2026-11-02. Complementa o [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), sem
+substituí-lo.
 
 ### 8. C4
 
-A preencher.
+Nível afetado: **Component do Core**. Mostra só o módulo `conquistas` e o que o toca; os demais
+componentes seguem como no Desafio 1.
+
+```mermaid
+C4Component
+  title Core API — Módulo conquistas (Ports & Adapters)
+
+  ContainerDb(db, "Banco relacional", "PostgreSQL 16", "student_badges")
+
+  Container_Boundary(core, "Core API (Spring Boot)") {
+    Component(ctrl, "ConquistasController", "Spring MVC (web)", "GET /conquistas/students/{id}")
+    Component(progApi, "progression.api", "Interface, evento e enum", "StudentProgressionApi, StudentScoreChangedEvent, Level")
+    Component(prog, "StudentService", "progression.internal", "Publica StudentScoreChangedEvent")
+
+    Boundary(mod, "Módulo conquistas") {
+      Component(api, "ConquistasApi", "conquistas.api", "Fachada pública e BadgeDTO")
+      Component(app, "ConquistasService + ConquistasConfig", "conquistas.internal", "Implementa a fachada e monta o domínio")
+
+      Boundary(dom, "Domínio puro: sem Spring, JPA ou adapters") {
+        Component(svc, "BadgeAwardService", "POJO", "Regra de concessão idempotente")
+        Component(rules, "BadgeRules + BadgeRule", "POJO", "Catálogo de regras")
+        Component(port, "AwardedBadgePort", "Porta (interface)", "Persistência de badges concedidos")
+      }
+
+      Boundary(adp, "Adapters") {
+        Component(listener, "StudentScoreEventListener", "Adapter de entrada, Spring", "Evento para o domínio; isola falhas")
+        Component(jpa, "JpaAwardedBadgeAdapter", "Adapter de saída, Spring Data JPA (produção)", "Implementa a porta")
+        Component(fake, "InMemoryAwardedBadgeAdapter", "Adapter de saída, em memória (testes)", "Implementa a porta")
+      }
+    }
+  }
+
+  Rel(ctrl, api, "Chama")
+  Rel(app, api, "Implementa")
+  Rel(app, svc, "Consulta badges")
+  Rel(app, progApi, "Valida aluno")
+  Rel(prog, listener, "StudentScoreChangedEvent", "ApplicationEvent em processo")
+  Rel(listener, svc, "Avalia regras")
+  Rel(svc, rules, "Usa")
+  Rel(svc, port, "Usa")
+  Rel(jpa, port, "Implementa")
+  Rel(fake, port, "Implementa")
+  Rel(jpa, db, "JPA/JDBC")
+```
+
+Sentido das dependências: os adapters apontam para o domínio, e o domínio não aponta para nenhum deles.
+`Level` é o único tipo externo que o domínio usa.
 
 ### 9. Evidência
 
-A preencher.
+**Hipótese testada:** isolar a regra atrás de uma porta permite trocar a persistência sem mudar o
+comportamento da regra, testá-la sem infraestrutura e alterá-la sem tocar nos adapters, sem afetar os
+endpoints existentes.
+
+A microsolução está no próprio Core, em
+[`conquistas/`](../../src/main/java/org/example/ac1devops/conquistas/). Resultados de 2026-11-02:
+
+| # | O que se testa | Como reproduzir | Resultado obtido |
+|---|---|---|---|
+| 1 | Mesma regra nos dois adapters | `mvnw.cmd test -Dtest=BadgeAwardInMemoryTest,BadgeAwardJpaIntegrationTest` | Os **mesmos 9 cenários** de [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) passam nos dois. |
+| 2 | Os cenários exercitam mesmo a regra | Trocar temporariamente `xpAtLeast(1, ...)` por `xpAtLeast(2, ...)` e repetir o comando | **Os mesmos 3 cenários falham em cada adapter**: [`d2-mutacao-regra.txt`](evidencias/d2-mutacao-regra.txt). |
+| 3 | Teste sem infraestrutura | Rodar cada teste isolado e comparar o log | Em memória: **0,3 s**, sem Spring e sem banco. JPA: **7,9 s**, com Spring e H2. |
+| 4 | Regra nova sem tocar nos adapters | Cenário `deveAplicarRegraNovaSemAlterarOAdapter` | Passa nos dois adapters, sem mudança neles. |
+| 5 | Fronteira do domínio | Criar no domínio uma classe com `@Component` e um campo `JpaAwardedBadgeAdapter`; rodar `mvnw.cmd test -Dtest=ModularArchitectureTest` | Build **falha em 3 regras**: [`d2-archunit-violacao.txt`](evidencias/d2-archunit-violacao.txt). |
+| 6 | Falha em Conquistas não derruba o XP | `mvnw.cmd test -Dtest=ConquistasFailureIsolationTest` | Com a persistência falhando e com a restrição única violada, `POST /students/{id}/xp` responde **200** e salva o XP. |
+| 7 | Endpoints existentes e fluxo real | `StudentEndpointIntegrationTest`, `ConquistasEndpointIntegrationTest` e chamadas em PostgreSQL 16 | `/students` e `/ranking` respondem como antes; 350 XP geram 3 badges, sem duplicar no evento seguinte. |
+| 8 | Concorrência em PostgreSQL | [`concorrencia_xp.py`](../../labs/desafio-2/concorrencia_xp.py), com os comandos abaixo | **400 de 400 POST com 200**, 36 duplicações barradas pelo banco e 0 badges duplicados: [`d2-concorrencia.txt`](evidencias/d2-concorrencia.txt). |
+| 9 | Build completo | `mvnw.cmd -B verify` | **84 testes**, 0 falhas. **100%** de cobertura: linhas 244/244, branches 26/26. |
+
+Comandos da linha 8 (PowerShell). A porta 55432 evita conflito com um PostgreSQL local:
+
+```powershell
+docker run -d --rm --name d2-pg -e POSTGRES_DB=ac1devops_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 55432:5432 postgres:16
+.\mvnw.cmd -B package -DskipTests
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:55432/ac1devops_db"; $env:SERVER_PORT="18081"
+java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+# em outro terminal:
+python labs\desafio-2\concorrencia_xp.py
+docker stop d2-pg
+```
+
+#### Defeito encontrado pela evidência
+
+A primeira versão passava em todos os testes com H2 e mocks, mas o teste em PostgreSQL mostrou **2 de 40
+requisições com 500** em `POST /students/{id}/xp`. Quando duas requisições disputavam o mesmo badge, o
+rollback da restrição única limpava a sessão do open-in-view, e o `StudentService` ainda lia a coleção lazy
+depois do evento. A correção foi montar a resposta antes de publicar o evento, com o teste
+`violacaoDaRestricaoUnicaNaoDeveAfetarAConcessaoDeXp` reproduzindo a falha antes do ajuste.
+
+#### Limites desta evidência
+
+- **Perda de XP sob concorrência, anterior a este desafio:** nos mesmos testes, de 2.000 XP enviados ficaram
+  entre 150 e 350, com level-ups repetidos, tanto antes quanto depois do Desafio 2. `receiveXp` lê e grava sem
+  controle de concorrência. Isso **não foi corrigido aqui**.
+- **Badges refletem o XP visto em cada evento:** nesse cenário, um aluno pode manter um badge acima do XP final
+  salvo, consequência direta da perda de XP.
+- **Latência:** o custo da avaliação síncrona em `POST /students/{id}/xp` não foi medido.
+- **Tempos da linha 3:** são de uma única execução; o que importa é a ordem de grandeza, não o valor exato.
 
 ---
 
@@ -784,9 +953,9 @@ A consolidar ao fim do Desafio 6, a partir da matriz cumulativa de ASRs.
 | Artefato | Caminho |
 |---|---|
 | Repositório | <https://github.com/GuilhermDias/AC1-Devops> |
-| ADR | [`docs/arquitetura/adr/ADR-001-estilo-arquitetural-core.md`](adr/ADR-001-estilo-arquitetural-core.md) |
-| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois) |
-| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java) |
+| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) |
+| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component) |
+| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java) |
 | Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
 | Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | Relatório de cobertura | Artifact `jacoco-report` de cada run do CI; local em `target/site/jacoco/index.html`; CSVs em [`evidencias/`](evidencias/) |

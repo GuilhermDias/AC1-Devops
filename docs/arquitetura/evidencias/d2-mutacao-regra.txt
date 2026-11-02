@@ -1,0 +1,11 @@
+# Desafio 2: mutacao da regra para provar que os dois adapters exercitam a mesma regra
+# Mudanca TEMPORARIA em BadgeRules: xpAtLeast(1, "PRIMEIROS_PASSOS"...) -> xpAtLeast(2, "PRIMEIROS_PASSOS"...)
+# Comando: mvnw.cmd -B test -Dtest=BadgeAwardInMemoryTest,BadgeAwardJpaIntegrationTest
+
+[ERROR]   BadgeAwardInMemoryTest>BadgeAwardContract.deveConcederPrimeirosPassosNoPrimeiroXp:40 
+[ERROR]   BadgeAwardInMemoryTest>BadgeAwardContract.deveManterBadgeConcedidoQuandoARegraDeixaDeExistir:94 
+[ERROR]   BadgeAwardInMemoryTest>BadgeAwardContract.naoDeveMisturarBadgesDeAlunosDiferentes:73 
+[ERROR]   BadgeAwardJpaIntegrationTest>BadgeAwardContract.deveConcederPrimeirosPassosNoPrimeiroXp:40 
+[ERROR]   BadgeAwardJpaIntegrationTest>BadgeAwardContract.deveManterBadgeConcedidoQuandoARegraDeixaDeExistir:94 
+[ERROR]   BadgeAwardJpaIntegrationTest>BadgeAwardContract.naoDeveMisturarBadgesDeAlunosDiferentes:73 
+[ERROR] Tests run: 18, Failures: 6, Errors: 0, Skipped: 0
