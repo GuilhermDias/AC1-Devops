@@ -1,0 +1,21 @@
+{
+  "studentId": 7,
+  "courses": [
+    {
+      "courseId": "testes-unitarios",
+      "title": "Testes Unitarios",
+      "reason": "Indicado para o seu nivel"
+    },
+    {
+      "courseId": "docker-essencial",
+      "title": "Docker Essencial",
+      "reason": "Indicado para o seu nivel"
+    },
+    {
+      "courseId": "ci-cd",
+      "title": "Integracao e Entrega Continuas",
+      "reason": "Prepara para o proximo nivel"
+    }
+  ],
+  "modelVersion": "regras-v1"
+}

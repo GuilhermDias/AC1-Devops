@@ -31,3 +31,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Python ###
+__pycache__/
+.pytest_cache/
+.venv/
