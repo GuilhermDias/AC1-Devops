@@ -43,8 +43,9 @@ public class StudentService implements StudentProgressionApi {
     @Override
     public StudentResponseDTO createStudent(CreateStudentRequestDTO request) {
         StudentEntity entity = studentRepository.save(new StudentEntity(request.name()));
+        StudentResponseDTO response = toResponseDTO(entity);
         eventPublisher.publishEvent(new StudentScoreChangedEvent(entity.getId(), entity.getXpTotal()));
-        return toResponseDTO(entity);
+        return response;
     }
 
     @Override
@@ -65,10 +66,13 @@ public class StudentService implements StudentProgressionApi {
         }
 
         StudentEntity saved = studentRepository.save(entity);
+        // A resposta e montada antes do evento: um rollback em um listener limpa a sessao do
+        // open-in-view, e a colecao lazy de level-ups nao poderia mais ser lida depois.
+        StudentResponseDTO response = toResponseDTO(saved);
         if (student.getXpTotal() != xpBefore) {
             eventPublisher.publishEvent(new StudentScoreChangedEvent(saved.getId(), saved.getXpTotal()));
         }
-        return toResponseDTO(saved);
+        return response;
     }
 
     @Override
