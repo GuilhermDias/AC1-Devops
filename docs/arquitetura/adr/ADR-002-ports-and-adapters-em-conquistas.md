@@ -88,6 +88,4 @@ moedas e recompensas, quando existirem.
 - A concessão roda de forma síncrona em `POST /students/{id}/xp` e acrescenta ao menos uma consulta.
   O impacto na latência não foi medido.
 - Se a avaliação falhar no último evento de um aluno, o badge só é concedido no próximo evento.
-- Herda a concorrência de `StudentService.receiveXp`, que perde XP sob requisições simultâneas. O
-  problema é anterior a este ADR e segue aberto.
-- O catálogo inicial de badges é uma proposta técnica: o case não define os badges nem os limites.
+- O catálogo inicial de badges é uma proposta da equipe: o case não define os badges nem os limites.

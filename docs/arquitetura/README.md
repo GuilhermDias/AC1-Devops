@@ -56,8 +56,8 @@ A numeração é global: novos desafios continuam a partir da ASR6.
 | **ASR1** — Evoluir funcionalidades com baixo acoplamento | Desafio 1 | Manutenibilidade / S | Monólito Modular, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); mini-lab (item 9.8) | **Atendido** |
 | **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4) | **Parcial:** medido só em H2, sem carga e sem p95; observabilidade não implementada |
 | **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
-| **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt) | **Atendido** |
-| **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt) | **Atendido** |
+| **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-runs.png) | **Atendido** |
+| **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-runs.png) | **Atendido** |
 
 ---
 
@@ -579,9 +579,9 @@ recompensas mudam com frequência.
 | **RF01 — Ranking** | **Existe.** | `GET /ranking`, `/ranking/top`, `/ranking/students/{id}`; ordenação em `StudentRepository` | Nenhuma mudança: a estrutura foi avaliada e mantida (item 5). |
 | **RF02 — Conquistas e regras de gamificação** | **Existe (badges).** Moedas e recompensas seguem planejadas. | `GET /conquistas/students/{id}` → `ConquistasController` → `ConquistasApi`; concessão por `StudentScoreChangedEvent` → `StudentScoreEventListener` → `BadgeAwardService` | Módulo novo `conquistas`. |
 
-O case não define quais badges existem, então o catálogo em
+O case não define quais badges existem. O catálogo em
 [`BadgeRules`](../../src/main/java/org/example/ac1devops/conquistas/internal/domain/BadgeRules.java) é
-uma **proposta técnica** a validar com o produto:
+uma **proposta da equipe**, não um requisito do case:
 
 | Badge | Condição |
 |---|---|
@@ -738,8 +738,9 @@ A microsolução está no próprio Core, em
 | 5 | Fronteira do domínio | Criar no domínio uma classe com `@Component` e um campo `JpaAwardedBadgeAdapter`; rodar `mvnw.cmd test -Dtest=ModularArchitectureTest` | Build **falha em 3 regras**: [`d2-archunit-violacao.txt`](evidencias/d2-archunit-violacao.txt). |
 | 6 | Falha em Conquistas não derruba o XP | `mvnw.cmd test -Dtest=ConquistasFailureIsolationTest` | Com a persistência falhando e com a restrição única violada, `POST /students/{id}/xp` responde **200** e salva o XP. |
 | 7 | Endpoints existentes e fluxo real | `StudentEndpointIntegrationTest`, `ConquistasEndpointIntegrationTest` e chamadas em PostgreSQL 16 | `/students` e `/ranking` respondem como antes; 350 XP geram 3 badges, sem duplicar no evento seguinte. |
-| 8 | Concorrência em PostgreSQL | [`concorrencia_xp.py`](../../labs/desafio-2/concorrencia_xp.py), com os comandos abaixo | **400 de 400 POST com 200**, 36 duplicações barradas pelo banco e 0 badges duplicados: [`d2-concorrencia.txt`](evidencias/d2-concorrencia.txt). |
-| 9 | Build completo | `mvnw.cmd -B verify` | **84 testes**, 0 falhas. **100%** de cobertura: linhas 244/244, branches 26/26. |
+| 8 | Concorrência em PostgreSQL | [`concorrencia_xp.py`](../../labs/desafio-2/concorrencia_xp.py), com os comandos abaixo | **2.000 de 2.000 XP** nas 10 rodadas, 3 level-ups, 5 badges, nada repetido e 400 de 400 POST com 200: [`d2-concorrencia.txt`](evidencias/d2-concorrencia.txt). |
+| 9 | Concorrência no build | `mvnw.cmd test -Dtest=XpConcurrencyIntegrationTest` | 40 POST em paralelo, com HTTP real e H2: 2.000 de 2.000 XP. O teste falhava antes da correção, com 350 XP. |
+| 10 | Build completo | `mvnw.cmd -B verify` | **88 testes**, 0 falhas. **100%** de cobertura: linhas 259/259, branches 30/30. |
 
 Comandos da linha 8 (PowerShell). A porta 55432 evita conflito com um PostgreSQL local:
 
@@ -761,13 +762,39 @@ rollback da restrição única limpava a sessão do open-in-view, e o `StudentSe
 depois do evento. A correção foi montar a resposta antes de publicar o evento, com o teste
 `violacaoDaRestricaoUnicaNaoDeveAfetarAConcessaoDeXp` reproduzindo a falha antes do ajuste.
 
+#### Correção da perda de XP
+
+Os mesmos testes revelaram um problema anterior a este desafio: `receiveXp` lia e gravava sem controle de
+concorrência, e requisições simultâneas sobrescreviam o XP umas das outras.
+
+| 10 rodadas de 40 POST de 50 XP no mesmo aluno, em PostgreSQL 16 | Antes | Depois |
+|---|---|---|
+| XP aplicado, de 2.000 | 150 a 350 | **2.000 em todas** |
+| Level-ups por aluno (correto: 3) | 9 a 13 | **3 em todas** |
+| Badges por aluno | 3, em desacordo com os 2.000 XP enviados | **5, nenhum repetido** |
+| Respostas | 400 de 400 com 200, mesmo perdendo XP | **400 de 400 com 200, com o XP aplicado** |
+
+- **Como funciona:** `StudentEntity` ganhou `@Version`. Quem perde a disputa lê o estado de novo e repete,
+  em até 15 tentativas com espera aleatória crescente. XP, nível e level-ups são gravados juntos, e o evento
+  que concede badges só sai depois da gravação que valeu, uma única vez.
+- **Se as tentativas acabarem:** a API responde **409** e nenhum XP é aplicado; o cliente fica sabendo, em vez
+  de o XP sumir em silêncio. O caso é coberto por teste, mas não ocorreu nas rodadas acima.
+- **Banco existente:** testado subindo a versão nova sobre um PostgreSQL com dados da versão antiga. A coluna
+  `version` entrou com valor 0, sem perda de dados, e o aluno antigo seguiu recebendo XP.
+
+#### CI no GitHub
+
+Run #2 do workflow `CI`, no commit `03007e1`: **Success**. O **aviso de Node.js 20 foi resolvido**: o run #1 tinha
+2 warnings e 1 notice, e o run #2 mostra só 1 notice, sem warnings, com as actions atualizadas.
+
+| Lista de runs | Etapas do job e anotações |
+|---|---|
+| ![Lista com os runs #1 e #2 verdes](evidencias/img/d2-ci-verde.png) | ![Run #2 com 1 notice, sem warnings](evidencias/img/d2-ci-runs.png) |
+
 #### Limites desta evidência
 
-- **Perda de XP sob concorrência, anterior a este desafio:** nos mesmos testes, de 2.000 XP enviados ficaram
-  entre 150 e 350, com level-ups repetidos, tanto antes quanto depois do Desafio 2. `receiveXp` lê e grava sem
-  controle de concorrência. Isso **não foi corrigido aqui**.
-- **Badges refletem o XP visto em cada evento:** nesse cenário, um aluno pode manter um badge acima do XP final
-  salvo, consequência direta da perda de XP.
+- **Disputa extrema:** 20 requisições simultâneas no mesmo aluno são improváveis no uso real; o teste mostra
+  que nada se perde, mas o tempo extra causado pelas novas tentativas não foi medido.
 - **Latência:** o custo da avaliação síncrona em `POST /students/{id}/xp` não foi medido.
 - **Tempos da linha 3:** são de uma única execução; o que importa é a ordem de grandeza, não o valor exato.
 
