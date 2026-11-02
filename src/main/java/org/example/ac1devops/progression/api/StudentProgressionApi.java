@@ -18,6 +18,8 @@ public interface StudentProgressionApi {
      * Concede XP ao aluno, registrando um evento de level-up para cada faixa atravessada.
      *
      * @throws StudentNotFoundException se nao existir aluno com o {@code id} informado
+     * @throws StudentUpdateConflictException se as tentativas acabarem por disputa com outras
+     *         requisicoes; nesse caso nenhum XP foi aplicado
      */
     StudentResponseDTO receiveXp(Long id, ReceiveXpRequestDTO request);
 

@@ -11,6 +11,7 @@ import org.example.ac1devops.progression.api.LevelUpEventDTO;
 import org.example.ac1devops.progression.api.StudentNotFoundException;
 import org.example.ac1devops.progression.api.StudentProgressionApi;
 import org.example.ac1devops.progression.api.StudentResponseDTO;
+import org.example.ac1devops.progression.api.StudentUpdateConflictException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +68,19 @@ class StudentControllerTest {
                 .bodyJson()
                 .extractingPath("$.level")
                 .isEqualTo("PRATA");
+    }
+
+    @Test
+    void deveRetornar409QuandoAsTentativasDeXpAcabam() {
+        when(studentProgression.receiveXp(eq(1L), any()))
+                .thenThrow(new StudentUpdateConflictException(1L, new IllegalStateException("conflito")));
+
+        mvc.post().uri("/students/{id}/xp", 1L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"X\",\"amount\":10}")
+                .exchange()
+                .assertThat()
+                .hasStatus(409);
     }
 
     @Test

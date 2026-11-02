@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.util.ArrayList;
 import java.util.List;
 import org.example.ac1devops.progression.api.Level;
@@ -25,6 +26,10 @@ import org.example.ac1devops.progression.api.Level;
  *
  * <p>O indice {@code idx_students_xp_total} segue a mesma ordem da consulta do ranking
  * ({@code xp_total DESC, id ASC}), entao o banco devolve uma pagina sem ordenar a tabela inteira.
+ *
+ * <p>{@code version} faz o bloqueio otimista: uma gravacao baseada em estado desatualizado falha em
+ * vez de sobrescrever o XP de outra requisicao. O {@code default 0} permite que o
+ * {@code ddl-auto=update} adicione a coluna em uma tabela que ja tem linhas.
  */
 @Entity
 @Table(name = "students",
@@ -34,6 +39,10 @@ public class StudentEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(name = "version", nullable = false, columnDefinition = "bigint default 0 not null")
+    private long version;
 
     @Column(name = "name", nullable = false)
     private String name;

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -17,6 +18,7 @@ import org.example.ac1devops.progression.api.StudentNotFoundException;
 import org.example.ac1devops.progression.api.StudentResponseDTO;
 import org.example.ac1devops.progression.api.StudentScoreChangedEvent;
 import org.example.ac1devops.progression.api.StudentScoreDTO;
+import org.example.ac1devops.progression.api.StudentUpdateConflictException;
 import org.example.ac1devops.progression.internal.persistence.LevelUpEventEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentRepository;
@@ -26,6 +28,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -63,7 +66,7 @@ class StudentServiceTest {
     void deveAcumularXpEGerarLevelUpAoCruzarFaixa() {
         StudentEntity entity = new StudentEntity("Aluno US1");
         when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE_CONCLUIDA", 110));
 
@@ -78,7 +81,7 @@ class StudentServiceTest {
     void deveGerarVariosLevelUpsAoCruzarVariasFaixasDeUmaVez() {
         StudentEntity entity = new StudentEntity("Aluno US3");
         when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("DESAFIO_HARD", 800));
 
@@ -92,7 +95,7 @@ class StudentServiceTest {
         when(studentRepository.findById(1L))
                 .thenReturn(Optional.of(entity))
                 .thenReturn(Optional.of(entity));
-        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         studentService.receiveXp(1L, new ReceiveXpRequestDTO("DESAFIO_HARD", 800));
         StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("DESAFIO_EXTRA", 200));
@@ -145,7 +148,7 @@ class StudentServiceTest {
         entity.setLevel(Level.PRATA);
         entity.addLevelUpEvent(new LevelUpEventEntity(Level.BRONZE, Level.PRATA));
         when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE_CONCLUIDA", 200));
 
@@ -161,14 +164,14 @@ class StudentServiceTest {
         StudentEntity entity = new StudentEntity("Aluno XP Invalido");
         entity.setXpTotal(50);
         when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         StudentResponseDTO response = studentService.receiveXp(1L, new ReceiveXpRequestDTO("MOTIVO_INVALIDO", -10));
 
         assertThat(response.xpTotal()).isEqualTo(50);
         assertThat(response.level()).isEqualTo(Level.BRONZE);
         assertThat(response.levelUpEvents()).isEmpty();
-        verify(studentRepository).save(entity);
+        verify(studentRepository).saveAndFlush(entity);
         verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
@@ -185,7 +188,7 @@ class StudentServiceTest {
     void devePublicarEventoDePontuacaoQuandoXpMuda() {
         StudentEntity entity = new StudentEntity("Aluno Evento");
         when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(studentRepository.save(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE_CONCLUIDA", 40));
 
@@ -224,5 +227,32 @@ class StudentServiceTest {
 
         assertThat(studentService.countStudentsAhead(new StudentScoreDTO(7L, "Aluno 7", 500, Level.OURO)))
                 .isEqualTo(3L);
+    }
+
+    @Test
+    void deveTentarDeNovoEPublicarUmUnicoEventoQuandoHaConflito() {
+        StudentEntity entity = new StudentEntity("Aluno Disputado");
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class)))
+                .thenThrow(new OptimisticLockingFailureException("conflito"))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE", 10));
+
+        verify(studentRepository, times(2)).saveAndFlush(entity);
+        verify(eventPublisher, times(1)).publishEvent(any(StudentScoreChangedEvent.class));
+    }
+
+    @Test
+    void deveDesistirSemPublicarEventoQuandoAsTentativasAcabam() {
+        when(studentRepository.findById(1L)).thenReturn(Optional.of(new StudentEntity("Aluno Disputado")));
+        when(studentRepository.saveAndFlush(any(StudentEntity.class)))
+                .thenThrow(new OptimisticLockingFailureException("conflito"));
+
+        assertThatThrownBy(() -> studentService.receiveXp(1L, new ReceiveXpRequestDTO("ATIVIDADE", 10)))
+                .isInstanceOf(StudentUpdateConflictException.class);
+
+        verify(studentRepository, times(StudentService.MAX_ATTEMPTS)).saveAndFlush(any(StudentEntity.class));
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 }

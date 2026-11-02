@@ -1,6 +1,9 @@
 package org.example.ac1devops.progression.internal;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import org.example.ac1devops.progression.api.CreateStudentRequestDTO;
 import org.example.ac1devops.progression.api.Level;
 import org.example.ac1devops.progression.api.LevelUpEventDTO;
@@ -10,12 +13,14 @@ import org.example.ac1devops.progression.api.StudentProgressionApi;
 import org.example.ac1devops.progression.api.StudentResponseDTO;
 import org.example.ac1devops.progression.api.StudentScoreChangedEvent;
 import org.example.ac1devops.progression.api.StudentScoreDTO;
+import org.example.ac1devops.progression.api.StudentUpdateConflictException;
 import org.example.ac1devops.progression.internal.domain.LevelUpEvent;
 import org.example.ac1devops.progression.internal.domain.Student;
 import org.example.ac1devops.progression.internal.persistence.LevelUpEventEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentEntity;
 import org.example.ac1devops.progression.internal.persistence.StudentRepository;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -28,9 +33,16 @@ import org.springframework.stereotype.Service;
  *
  * <p>Publica {@link StudentScoreChangedEvent} quando um aluno e criado ou o XP total muda, para
  * que outros modulos (ex.: o cache do ranking) reajam sem dependencia de volta para este modulo.
+ *
+ * <p>Requisicoes simultaneas no mesmo aluno sao resolvidas por bloqueio otimista: quem perde a
+ * disputa le o estado de novo e repete, um numero limitado de vezes. XP, nivel e level-ups sao
+ * gravados juntos, e o evento so sai depois da gravacao que valeu, uma unica vez.
  */
 @Service
 public class StudentService implements StudentProgressionApi {
+
+    static final int MAX_ATTEMPTS = 15;
+    private static final long BACKOFF_STEP_MILLIS = 20;
 
     private final StudentRepository studentRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -50,6 +62,35 @@ public class StudentService implements StudentProgressionApi {
 
     @Override
     public StudentResponseDTO receiveXp(Long id, ReceiveXpRequestDTO request) {
+        AppliedXp applied = applyXpWithRetry(id, request);
+        // A resposta e montada antes do evento: um rollback em um listener limpa a sessao do
+        // open-in-view, e a colecao lazy de level-ups nao poderia mais ser lida depois.
+        StudentResponseDTO response = toResponseDTO(applied.student());
+        if (applied.xpChanged()) {
+            eventPublisher.publishEvent(
+                    new StudentScoreChangedEvent(applied.student().getId(), applied.student().getXpTotal()));
+        }
+        return response;
+    }
+
+    private AppliedXp applyXpWithRetry(Long id, ReceiveXpRequestDTO request) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return applyXp(id, request);
+            } catch (ConcurrencyFailureException conflict) {
+                if (attempt == MAX_ATTEMPTS) {
+                    throw new StudentUpdateConflictException(id, conflict);
+                }
+                waitBeforeRetry(attempt);
+            }
+        }
+    }
+
+    /**
+     * Le o estado atual, aplica a regra de dominio e grava tudo de uma vez. O flush faz o conflito
+     * aparecer aqui dentro: o rollback resultante limpa a sessao, entao a proxima tentativa le do banco.
+     */
+    private AppliedXp applyXp(Long id, ReceiveXpRequestDTO request) {
         StudentEntity entity = findEntityOrThrow(id);
 
         Student student = toDomain(entity);
@@ -65,14 +106,13 @@ public class StudentService implements StudentProgressionApi {
             entity.addLevelUpEvent(new LevelUpEventEntity(event.getFromLevel(), event.getToLevel()));
         }
 
-        StudentEntity saved = studentRepository.save(entity);
-        // A resposta e montada antes do evento: um rollback em um listener limpa a sessao do
-        // open-in-view, e a colecao lazy de level-ups nao poderia mais ser lida depois.
-        StudentResponseDTO response = toResponseDTO(saved);
-        if (student.getXpTotal() != xpBefore) {
-            eventPublisher.publishEvent(new StudentScoreChangedEvent(saved.getId(), saved.getXpTotal()));
-        }
-        return response;
+        return new AppliedXp(studentRepository.saveAndFlush(entity), student.getXpTotal() != xpBefore);
+    }
+
+    /** Espera aleatoria e crescente, para as requisicoes em disputa nao colidirem de novo juntas. */
+    private static void waitBeforeRetry(int attempt) {
+        long millis = ThreadLocalRandom.current().nextLong(BACKOFF_STEP_MILLIS * attempt + 1);
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(millis));
     }
 
     @Override
@@ -125,5 +165,8 @@ public class StudentService implements StudentProgressionApi {
                 .toList();
         return new StudentResponseDTO(
                 entity.getId(), entity.getName(), entity.getXpTotal(), entity.getLevel(), events);
+    }
+
+    private record AppliedXp(StudentEntity student, boolean xpChanged) {
     }
 }
