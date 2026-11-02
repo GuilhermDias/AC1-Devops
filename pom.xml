@@ -53,6 +53,14 @@
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
 
+        <!-- Circuit breaker do cliente do servico de IA: com o servico fora do ar, para de esperar
+             o timeout a cada chamada e o Core responde direto no modo degradado (ADR-003). -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+            <version>2.4.0</version>
+        </dependency>
+
         <!-- Banco de producao/execucao: Postgres em container (perfil 'postgres', o padrao). -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -73,6 +81,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Servidor HTTP real nos testes do cliente do servico de IA: simula queda, lentidao e erro.
+             A versao standalone evita conflito de dependencias com o Spring Boot. -->
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>3.13.2</version>
             <scope>test</scope>
         </dependency>
         <!-- Regras de arquitetura (fronteiras do modulo progression e camadas) verificadas como

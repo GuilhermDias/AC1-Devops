@@ -25,7 +25,7 @@ class ModularArchitectureTest {
 
     private static final String ROOT = "org.example.ac1devops";
 
-    static final List<String> MODULES = List.of("progression", "ranking", "conquistas");
+    static final List<String> MODULES = List.of("progression", "ranking", "conquistas", "recomendacao");
 
     private static String module(String name) {
         return ROOT + "." + name + "..";
@@ -86,21 +86,27 @@ class ModularArchitectureTest {
             .layer("RankingInternal").definedBy(internal("ranking"))
             .layer("ConquistasApi").definedBy(api("conquistas"))
             .layer("ConquistasInternal").definedBy(internal("conquistas"))
+            .layer("RecomendacaoApi").definedBy(api("recomendacao"))
+            .layer("RecomendacaoInternal").definedBy(internal("recomendacao"))
             .layer("Config").definedBy(ROOT + ".config..")
             .whereLayer("Web").mayNotBeAccessedByAnyLayer()
             .whereLayer("Config").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("RankingInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("ConquistasInternal").mayNotBeAccessedByAnyLayer()
+            .whereLayer("RecomendacaoInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionApi").mayOnlyBeAccessedByLayers(
-                    "Web", "ProgressionInternal", "RankingApi", "RankingInternal", "ConquistasInternal")
+                    "Web", "ProgressionInternal", "RankingApi", "RankingInternal", "ConquistasInternal",
+                    "RecomendacaoInternal")
             .whereLayer("RankingApi").mayOnlyBeAccessedByLayers("Web", "RankingInternal")
-            .whereLayer("ConquistasApi").mayOnlyBeAccessedByLayers("Web", "ConquistasInternal");
+            .whereLayer("ConquistasApi").mayOnlyBeAccessedByLayers("Web", "ConquistasInternal")
+            .whereLayer("RecomendacaoApi").mayOnlyBeAccessedByLayers("Web", "RecomendacaoInternal");
 
     @ArchTest
     static final ArchRule progressionNaoConheceOutrosModulos = noClasses()
             .that().resideInAPackage(module("progression"))
-            .should().dependOnClassesThat().resideInAnyPackage(module("ranking"), module("conquistas"))
+            .should().dependOnClassesThat().resideInAnyPackage(
+                    module("ranking"), module("conquistas"), module("recomendacao"))
             .because("os outros modulos dependem de progression (pela api e por eventos), nunca o contrario");
 
     @ArchTest
@@ -113,10 +119,22 @@ class ModularArchitectureTest {
 
     /** Inversao de dependencia do ADR-002: os adapters conhecem a porta, nunca o contrario. */
     @ArchTest
-    static final ArchRule nadaDependeDosAdaptersDeConquistas = noClasses()
-            .that().resideOutsideOfPackage(internal("conquistas") + "adapter..")
-            .should().dependOnClassesThat().resideInAPackage(internal("conquistas") + "adapter..")
-            .because("o acesso aos adapters e sempre pela porta, resolvida pelo Spring");
+    static void nadaDependeDosAdapters(JavaClasses classes) {
+        for (String name : List.of("conquistas", "recomendacao")) {
+            noClasses()
+                    .that().resideOutsideOfPackage(internal(name) + "adapter..")
+                    .should().dependOnClassesThat().resideInAPackage(internal(name) + "adapter..")
+                    .because("o acesso aos adapters e sempre pela porta, resolvida pelo Spring")
+                    .check(classes);
+        }
+    }
+
+    /** ADR-003: o fluxo essencial nao pode depender de IA, nem indiretamente pelo codigo. */
+    @ArchTest
+    static final ArchRule fluxoEssencialNaoConheceRecomendacao = noClasses()
+            .that().resideInAnyPackage(module("ranking"), module("conquistas"))
+            .should().dependOnClassesThat().resideInAPackage(module("recomendacao"))
+            .because("a indisponibilidade do servico de IA nao pode alcancar ranking nem conquistas");
 
     @ArchTest
     static final ArchRule controllersFicamNaCamadaWeb = classes()
