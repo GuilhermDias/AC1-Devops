@@ -44,7 +44,8 @@ Critérios aplicados em todas as decisões:
 - A microsolução testa uma hipótese arquitetural, não apenas o funcionamento da ferramenta.
 - Prefere-se a solução mais simples que atenda aos ASRs.
 
-Microsoluções ficam em `/labs/desafio-N/` ou no próprio código do Core, sempre linkadas aqui.
+Microsoluções ficam em `/labs/desafio-N/` ou no próprio código do Core, sempre linkadas aqui. Prints
+ficam em [`evidencias/img/`](evidencias/img/), com o prefixo do desafio (`d1-`, `d2-`...).
 
 ## Matriz cumulativa de ASRs
 
@@ -54,7 +55,7 @@ A numeração é global: novos desafios continuam a partir da ASR4.
 |---|---|---|---|---|---|
 | **ASR1** — Evoluir funcionalidades com baixo acoplamento | Desafio 1 | Manutenibilidade / S | Monólito Modular, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); mini-lab (item 9.8) | **Atendido** |
 | **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4) | **Parcial:** medido só em H2, sem carga e sem p95; observabilidade não implementada |
-| **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml) | **Atendido localmente:** falta run do CI no GitHub, pois a branch não foi publicada |
+| **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
 
 ---
 
@@ -513,6 +514,15 @@ Fontes brutas: [`evidencias/jacoco-antes.csv`](evidencias/jacoco-antes.csv) e
 (item 9.10).
 
 #### 9.10 Evidência de DevOps — pipeline de CI
+
+**Run no GitHub (ASR3):** run #1 do workflow `CI`, no commit `4d21fa4` da branch
+`feature/b1-architecture-lab`: status **Success**, 1m 13s e 2 artifacts. O aviso de Node.js 20 que
+aparece nos prints veio das actions usadas naquele run; o `ci.yml` foi atualizado depois para versões
+que rodam em Node 24.
+
+| Lista de runs | Resumo do run | Etapas do job |
+|---|---|---|
+| ![Lista de runs do CI com o run #1 verde](evidencias/img/d1-ci-verde.png) | ![Resumo do run: Success e 2 artifacts](evidencias/img/d1-ci-resumo.png) | ![Etapas do job concluídas](evidencias/img/d1-ci-etapas.png) |
 
 Workflow: [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) (não havia workflow
 anterior no repositório).
