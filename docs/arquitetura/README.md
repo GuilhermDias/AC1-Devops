@@ -15,8 +15,8 @@ RF → RNF → ASR → RPC (trade-offs) → ADR → C4 → evidência no código
 
 **Resumo da decisão:** **Monólito Modular.** Não há necessidade comprovada de escala ou deploy
 independente, e a complexidade distribuída não se justifica para 6 devs com um banco relacional
-único. Ranking e Conquistas entram como módulos com API própria; a extração do Ranking como
-serviço tem gatilhos mensuráveis (§4.2). Tabela completa em
+único. O Ranking já é um módulo com API própria (`ranking`) e Conquistas entrará no mesmo padrão; a
+extração do Ranking como serviço tem gatilhos mensuráveis (§4.2). Tabela completa em
 **[Rastreabilidade](#rastreabilidade)**; registro formal no
 [ADR-001](adr/ADR-001-estilo-arquitetural-core.md).
 
@@ -29,12 +29,12 @@ serviço tem gatilhos mensuráveis (§4.2). Tabela completa em
 
 | RF | Estado | Classes / endpoints reais | Onde entra na arquitetura |
 |---|---|---|---|
-| **RF01 — Ranking** | **Planejado.** Não há endpoint, consulta ordenada nem tabela de ranking. | Dado de origem já existe: coluna `xp_total` de `StudentEntity` (tabela `students`), exposta hoje só por `GET /students` (`StudentController.listStudents` → `StudentProgressionApi.listStudents`). | Novo módulo `ranking` (`ranking.api` + `ranking.internal`) que consome **apenas** `StudentProgressionApi`; consulta ordenada, paginada e com cache próprio. |
-| **RF02 — Conquistas** | **Planejado.** | Conceito mais próximo: histórico de level-up — `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão em processo (Spring `ApplicationEvent`), sem chamada remota. |
+| **RF01 — Ranking** | **Existe.** | `GET /ranking?page&size`, `GET /ranking/top?n`, `GET /ranking/students/{id}` → `RankingController` → `RankingApi` (impl. `RankingService`) → `StudentProgressionApi.listByScore` / `getScore` / `countStudentsAhead` → `StudentRepository.findScoresOrderedByXp` / `countAhead`. DTOs `RankingEntryDTO`, `RankingPageDTO`; `400` via `InvalidRankingQueryException`. | Módulo `ranking` (`ranking.api` + `ranking.internal`), que consome **apenas** `StudentProgressionApi`; ordenação e paginação no banco, índice `idx_students_xp_total` e cache do top N (§7). |
+| **RF02 — Conquistas** | **Planejado.** Não implementado nesta etapa (ver §7, Implementação). | Conceito mais próximo: histórico de level-up — `LevelUpEvent` (domínio) / `LevelUpEventEntity` (tabela `level_up_events`), gerado em `Student.receiveXp`. | Novo módulo `conquistas` que reage a eventos de progressão em processo (Spring `ApplicationEvent`), sem chamada remota. |
 | **RF03 — Cadastrar aluno** (US4) | **Existe.** | `POST /students` → `StudentController.createStudent` → `StudentProgressionApi.createStudent` (impl. `StudentService`) → `StudentRepository.save`. DTO `CreateStudentRequestDTO`. | Módulo `progression`. |
 | **RF04 — Conceder XP e subir de nível** (US1, US2, US3) | **Existe.** | `POST /students/{id}/xp` → `StudentController.receiveXp` → `StudentService.receiveXp`; regra em `Student.receiveXp` + `Level.fromXp` (BRONZE 0, PRATA 100, OURO 300, DIAMANTE 700); um `LevelUpEvent` por faixa atravessada. DTO `ReceiveXpRequestDTO`. | Módulo `progression` (domínio em `progression.internal.domain`). |
 | **RF05 — Consultar perfil do aluno** (US4) | **Existe.** | `GET /students/{id}` → `StudentController.getStudent` → `StudentService.getStudent`; `404` via `StudentNotFoundException` + `ApiExceptionHandler`. DTOs `StudentResponseDTO`, `LevelUpEventDTO`. | Módulo `progression`. |
-| **RF06 — Listar alunos** | **Existe.** | `GET /students` → `StudentController.listStudents` → `StudentService.listStudents` (`findAll()` sem paginação). | Módulo `progression`; base de dados do RF01. |
+| **RF06 — Listar alunos** | **Existe.** | `GET /students` → `StudentController.listStudents` → `StudentService.listStudents` (`findAll()` sem paginação, mantido por compatibilidade com o front-end). | Módulo `progression`. Para volume, o caminho é o `GET /ranking` paginado. |
 | **RF-EVO — Cursos e recompensas** | **Planejado.** Não existem no código. | — | Módulos irmãos (`cursos`, `recompensas`) no mesmo padrão `api/` + `internal/`. |
 
 Interfaces de apoio que já existem: front-end Vue 3 em `src/main/resources/static/index.html`
@@ -45,8 +45,8 @@ Interfaces de apoio que já existem: front-end Vue 3 em `src/main/resources/stat
 | RNF | Análise no contexto da AC1 | Meta mensurável | Situação hoje |
 |---|---|---|---|
 | **Manutenibilidade** | Com Ranking, Conquistas, Cursos e Recompensas entrando, uma organização só por camada técnica espalharia cada funcionalidade por todos os pacotes e permitiria qualquer import. | 0 violações das regras de `ModularArchitectureTest`; um novo módulo não exige alterar classes de `progression.internal`. | Existe: 6 regras ArchUnit verdes no `mvn verify`. |
-| **Desempenho** | O risco é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1). Um Ranking ingênuo em cima disso degradaria. | Ranking (top 100 e posição do aluno) com **p95 ≤ 300 ms** e **base de 100.000 alunos**; `POST /students/{id}/xp` com p95 ≤ 200 ms. | Não medido; Ranking não existe. Será medido na §7. |
-| **Escalabilidade** | Ranking é *read-heavy* e cresce mais que o resto. Monólito *stateless* escala horizontalmente; o ranking pode vir de cache. | Atender 100.000 usuários escalando réplicas do Core sem mudar código; nenhuma sessão em memória. | Core já é *stateless* (sem sessão HTTP); 1 réplica no `docker-compose.yml`. |
+| **Desempenho** | O risco é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1). Um Ranking ingênuo em cima disso degradaria. | Ranking (top 100 e posição do aluno) com **p95 ≤ 300 ms** e **base de 100.000 alunos**; `POST /students/{id}/xp` com p95 ≤ 200 ms. | Ranking com 100.000 alunos no H2 de teste: página 0 em **10 ms**, última página em **25 ms**, posição de um aluno em **45 ms** (§7). Falta medir em PostgreSQL sob carga HTTP. |
+| **Escalabilidade** | Ranking é *read-heavy* e cresce mais que o resto. Monólito *stateless* escala horizontalmente; o ranking pode vir de cache. | Atender 100.000 usuários escalando réplicas do Core sem mudar código; nenhuma sessão em memória. | Core *stateless* (sem sessão HTTP); 1 réplica no `docker-compose.yml`. O cache do top N é por instância: com várias réplicas, trocar por um cache compartilhado (ex.: Redis), sem mudar o código do módulo. |
 | **Testabilidade** | Domínio em POJO e regra de fronteira verificável por teste. | **Cobertura de 100%** de linhas e branches; piso de **90%** que quebra o build (`jacoco:check`). | Existe: 100% instruções/linhas/branches/métodos; piso de 90% no `pom.xml`. |
 | **Observabilidade** | Sem métricas não há como saber se os gatilhos de extração do Ranking (§4.2) foram atingidos — a decisão depende disso. | Latência p95, taxa de erro e throughput por endpoint expostos em formato Prometheus e visualizados no Grafana; alerta se p95 do ranking > 300 ms. | **Não existe:** sem Actuator, Micrometer, Prometheus ou Grafana no projeto. Será implementado na §7. |
 | **Complexidade operacional** | Hoje: 1 jar, 1 imagem Docker, 1 PostgreSQL, 1 `docker-compose.yml`, 1 workflow de CI. Serviços separados trariam múltiplos pipelines, contratos versionados, rede e dados distribuídos. | Continuar com **1 artefato, 1 banco e 1 pipeline**; ambiente completo sobe com um único `docker compose up`. | Atendido. |
@@ -131,7 +131,7 @@ Elementos marcados **(planejado)** ainda não existem no código; os demais exis
 C4Context
   title Educação Continuada Gamificada — Contexto
 
-  Person(aluno, "Aluno", "Ganha XP, sobe de nível, consulta perfil e (planejado) ranking e conquistas")
+  Person(aluno, "Aluno", "Ganha XP, sobe de nível, consulta perfil e ranking; (planejado) conquistas")
   Person(equipe, "Equipe (6 devs)", "Desenvolve, opera e monitora a plataforma")
 
   System(plataforma, "Plataforma de Educação Continuada Gamificada", "Front-end Vue + Core API (Monólito Modular) + PostgreSQL")
@@ -156,8 +156,8 @@ C4Container
 
   System_Boundary(plataforma, "Plataforma") {
     Container(spa, "Front-end", "Vue 3 via CDN (static/index.html)", "Servido pelo próprio Core na raiz '/'")
-    Container(core, "Core API", "Java 21, Spring Boot 4.1 — Monólito Modular", "Módulo progression; ranking e conquistas (planejado). Réplicas stateless.")
-    ContainerDb(db, "Banco relacional", "PostgreSQL 16", "students, level_up_events (cada módulo é dono das suas tabelas)")
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 — Monólito Modular", "Módulos progression e ranking (com cache do top N); conquistas (planejado). Réplicas stateless.")
+    ContainerDb(db, "Banco relacional", "PostgreSQL 16", "students (índice idx_students_xp_total), level_up_events")
     Container(pgadmin, "pgAdmin", "pgAdmin 4", "Inspeção do banco (docker-compose)")
     Container(prom, "Prometheus (planejado)", "Prometheus", "Coleta /actuator/prometheus do Core e guarda séries temporais")
     Container(graf, "Grafana (planejado)", "Grafana", "Painéis de latência p95, erros e throughput; acompanha G1–G5")
@@ -166,7 +166,7 @@ C4Container
   System_Ext(gha, "GitHub Actions", "CI: .github/workflows/ci.yml")
 
   Rel(aluno, spa, "Usa", "HTTPS")
-  Rel(spa, core, "Chama /students", "JSON/HTTP")
+  Rel(spa, core, "Chama /students e /ranking", "JSON/HTTP")
   Rel(core, db, "Lê e escreve", "JPA/JDBC")
   Rel(pgadmin, db, "Conecta", "SQL")
   Rel(prom, core, "Scrape de métricas", "HTTP")
@@ -187,23 +187,28 @@ C4Component
   Container(prom, "Prometheus (planejado)", "Prometheus")
 
   Container_Boundary(core, "Core API (Spring Boot)") {
-    Component(ctrl, "StudentController + ApiExceptionHandler", "Spring MVC (pacote web)", "REST /students; usa só progression.api")
+    Component(ctrl, "StudentController + RankingController + ApiExceptionHandler", "Spring MVC (pacote web)", "REST /students e /ranking; usa só progression.api e ranking.api")
     Component(api, "StudentProgressionApi", "Interface Java (progression.api)", "Fachada pública: DTOs, Level, StudentNotFoundException")
     Component(svc, "StudentService", "Spring @Service (progression.internal)", "Implementa a fachada; orquestra domínio e persistência")
     Component(dom, "Student / LevelUpEvent", "POJO (progression.internal.domain)", "Regra de XP e níveis")
-    Component(repo, "StudentRepository + StudentEntity / LevelUpEventEntity", "Spring Data JPA (progression.internal.persistence)", "students, level_up_events")
-    Component(rank, "Módulo ranking (planejado, RF01)", "ranking.api / ranking.internal", "Consulta ordenada por XP, paginada, com cache")
+    Component(repo, "StudentRepository + StudentEntity / LevelUpEventEntity", "Spring Data JPA (progression.internal.persistence)", "students, level_up_events; consulta ordenada por XP com índice")
+    Component(rankApi, "RankingApi", "Interface Java (ranking.api)", "Fachada pública do ranking: RankingEntryDTO, RankingPageDTO")
+    Component(rank, "RankingService + cache do top N", "Spring @Service + Spring Cache (ranking.internal)", "Pagina, calcula posição e guarda o top N em cache")
+    Component(inval, "RankingCacheInvalidator", "@EventListener (ranking.internal)", "Esvazia o cache ao receber StudentScoreChangedEvent")
     Component(conq, "Módulo conquistas (planejado, RF02)", "conquistas.api / conquistas.internal", "Reage a eventos de level-up (ApplicationEvent)")
     Component(metrics, "Métricas (planejado)", "Spring Boot Actuator + Micrometer", "Expõe /actuator/prometheus")
   }
 
   Rel(spa, ctrl, "JSON/HTTP")
   Rel(ctrl, api, "Chama")
+  Rel(ctrl, rankApi, "Chama")
+  Rel(rank, rankApi, "Implementa")
+  Rel(svc, inval, "Publica StudentScoreChangedEvent", "ApplicationEvent em processo")
   Rel(svc, api, "Implementa")
   Rel(svc, dom, "Usa")
   Rel(svc, repo, "Usa")
   Rel(repo, db, "JPA/JDBC")
-  Rel(rank, api, "Consulta alunos/XP (em memória)")
+  Rel(rank, api, "listByScore / getScore / countStudentsAhead (em memória)")
   Rel(conq, api, "Escuta eventos de level-up (em memória)")
   Rel(prom, metrics, "Scrape", "HTTP")
 ```
@@ -214,8 +219,8 @@ C4Component
 
 | RF | RNF | ASR | RPC | ADR | C4 | Evidência no código |
 |---|---|---|---|---|---|---|
-| RF01 Ranking (planejado; fonte: `xp_total` em `StudentEntity`) | Desempenho, Escalabilidade, Observabilidade | ASR2 | RPC3 (banco único), RPC4 (legado) | ADR-001, Decisão itens 5–6 + gatilhos G1–G5 | Component: módulo `ranking` → `StudentProgressionApi`; Container: Prometheus/Grafana | `StudentProgressionApi.listStudents` (fonte de dados); medições na §7 |
-| RF02 Conquistas (planejado; base: `LevelUpEvent`) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` | `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
+| RF01 Ranking (`/ranking`) | Desempenho, Escalabilidade, Observabilidade | ASR2 | RPC3 (banco único), RPC4 (legado) | ADR-001, Decisão itens 4–6 + gatilhos G1–G5 | Component: `RankingController` → `RankingApi` ← `RankingService` → `StudentProgressionApi`; Container: Prometheus/Grafana | [`RankingService`](../../src/main/java/org/example/ac1devops/ranking/internal/RankingService.java), [`StudentRepository`](../../src/main/java/org/example/ac1devops/progression/internal/persistence/StudentRepository.java), índice em [`StudentEntity`](../../src/main/java/org/example/ac1devops/progression/internal/persistence/StudentEntity.java), [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java), [`RankingCacheIntegrationTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingCacheIntegrationTest.java) |
+| RF02 Conquistas (planejado; base: `LevelUpEvent`) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` (planejado) | `StudentScoreChangedEvent` (mecanismo de eventos já usado pelo ranking); `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
 | RF03–RF06 Progressão (`/students`, US1–US4) | Manutenibilidade, Testabilidade | ASR1, ASR3 | RPC2 (6 devs), RPC4 (legado) | ADR-001, Decisão itens 1–4 | Component: `StudentController` → `StudentProgressionApi` ← `StudentService` | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java), [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) |
 | (todos) | Testabilidade (cobertura 100%) | ASR3 | RPC4 (cobertura herdada) | ADR-001, Consequências | Context/Container: GitHub Actions | `jacoco:check` no [`pom.xml`](../../pom.xml), [`ci.yml`](../../.github/workflows/ci.yml) |
 | (todos) | Observabilidade | ASR2 (meio de verificação) | RPC1 (Actuator/Micrometer da stack) | ADR-001, Decisão item 6 | Container: Prometheus, Grafana; Component: Métricas | Planejado — §7 Observabilidade |
