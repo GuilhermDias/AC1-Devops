@@ -25,7 +25,7 @@ class ModularArchitectureTest {
 
     private static final String ROOT = "org.example.ac1devops";
 
-    static final List<String> MODULES = List.of("progression", "ranking");
+    static final List<String> MODULES = List.of("progression", "ranking", "conquistas");
 
     private static String module(String name) {
         return ROOT + "." + name + "..";
@@ -84,28 +84,39 @@ class ModularArchitectureTest {
             .layer("ProgressionInternal").definedBy(internal("progression"))
             .layer("RankingApi").definedBy(api("ranking"))
             .layer("RankingInternal").definedBy(internal("ranking"))
+            .layer("ConquistasApi").definedBy(api("conquistas"))
+            .layer("ConquistasInternal").definedBy(internal("conquistas"))
             .layer("Config").definedBy(ROOT + ".config..")
             .whereLayer("Web").mayNotBeAccessedByAnyLayer()
             .whereLayer("Config").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("RankingInternal").mayNotBeAccessedByAnyLayer()
+            .whereLayer("ConquistasInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionApi").mayOnlyBeAccessedByLayers(
-                    "Web", "ProgressionInternal", "RankingApi", "RankingInternal")
-            .whereLayer("RankingApi").mayOnlyBeAccessedByLayers("Web", "RankingInternal");
+                    "Web", "ProgressionInternal", "RankingApi", "RankingInternal", "ConquistasInternal")
+            .whereLayer("RankingApi").mayOnlyBeAccessedByLayers("Web", "RankingInternal")
+            .whereLayer("ConquistasApi").mayOnlyBeAccessedByLayers("Web", "ConquistasInternal");
 
     @ArchTest
-    static final ArchRule progressionNaoConheceRanking = noClasses()
+    static final ArchRule progressionNaoConheceOutrosModulos = noClasses()
             .that().resideInAPackage(module("progression"))
-            .should().dependOnClassesThat().resideInAPackage(module("ranking"))
-            .because("ranking depende de progression (pela api e por eventos), nunca o contrario");
+            .should().dependOnClassesThat().resideInAnyPackage(module("ranking"), module("conquistas"))
+            .because("os outros modulos dependem de progression (pela api e por eventos), nunca o contrario");
 
     @ArchTest
-    static final ArchRule dominioSemFramework = noClasses()
-            .that().resideInAPackage(ROOT + ".progression.internal.domain..")
+    static final ArchRule dominioSemFrameworkNemAdapters = noClasses()
+            .that().resideInAPackage(ROOT + "..internal.domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "org.springframework..", "jakarta.persistence..",
-                    ROOT + ".progression.internal.persistence..")
-            .because("a regra de XP/nivel e POJO puro, independente de Spring e de JPA");
+                    "org.springframework..", "jakarta.persistence..", "org.hibernate..",
+                    ROOT + "..persistence..", ROOT + "..adapter..")
+            .because("as regras de negocio sao POJOs puros, independentes de Spring, de JPA e dos adapters");
+
+    /** Inversao de dependencia do ADR-002: os adapters conhecem a porta, nunca o contrario. */
+    @ArchTest
+    static final ArchRule nadaDependeDosAdaptersDeConquistas = noClasses()
+            .that().resideOutsideOfPackage(internal("conquistas") + "adapter..")
+            .should().dependOnClassesThat().resideInAPackage(internal("conquistas") + "adapter..")
+            .because("o acesso aos adapters e sempre pela porta, resolvida pelo Spring");
 
     @ArchTest
     static final ArchRule controllersFicamNaCamadaWeb = classes()
