@@ -22,7 +22,7 @@ serviços, começando por extrair o Ranking como serviço.
 
 ## ASRs e RPCs
 
-**ASRs** (detalhe na §3 do README):
+**ASRs** (detalhe no Desafio 1, item 3 do README):
 
 - **ASR1 — Evoluir funcionalidades com baixo acoplamento** (manutenibilidade). Impacta a
   **estrutura**, com módulos por funcionalidade (`api/` público + `internal/` privado).
@@ -62,7 +62,7 @@ Adotar o **Monólito Modular (B)** no Core:
    `StudentProgressionApi`. Ranking e Conquistas entram como novos módulos que consomem
    `progression.api`.
 5. O Ranking **não** será extraído agora. A extração será reavaliada quando ao menos dois dos
-   gatilhos G1–G5 (§4.2 do README) forem observados de forma sustentada, depois de aplicados
+   gatilhos G1–G5 (Desafio 1, item 5 do README) forem observados de forma sustentada, depois de aplicados
    índice, paginação e cache.
 6. Os gatilhos são medidos, não estimados: o Core passa a expor métricas (Spring Boot Actuator +
    Micrometer em `/actuator/prometheus`), coletadas pelo Prometheus e exibidas no Grafana, como
