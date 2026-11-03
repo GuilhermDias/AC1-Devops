@@ -49,7 +49,7 @@ ficam em [`evidencias/img/`](evidencias/img/), com o prefixo do desafio (`d1-`, 
 
 ## Matriz cumulativa de ASRs
 
-A numeração é global: novos desafios continuam a partir da ASR12.
+A numeração é global: novos desafios continuam a partir da ASR15.
 
 | ASR | Desafio de origem | RNF / FURPS+ | Decisão / ADR | Evidência | Status |
 |---|---|---|---|---|---|
@@ -64,6 +64,9 @@ A numeração é global: novos desafios continuam a partir da ASR12.
 | **ASR9** — Conclusão independente dos consumidores | Desafio 4 | Tolerância a falhas, Disponibilidade, Latência e Desacoplamento / R, P, S | Consumidor fora da transação, depois do commit, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [falhas simuladas](evidencias/d4-falhas-simuladas.txt); [PostgreSQL](evidencias/d4-postgres.txt); prints ([conclusão com o canal fora](evidencias/img/d4-01-conclusao-canal-fora.png), [evento pendente](evidencias/img/d4-02-evento-pendente.png), [CI](evidencias/img/d4-06-ci-verde.png)) | **Atendido** |
 | **ASR10** — Conclusão e recompensa atômicas e exatamente uma vez | Desafio 4 | Consistência / R | Transação única, `@Version` e restrição única, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): 0 alunos com XP divergente; [repetição sem novo XP](evidencias/img/d4-04-recuperado.png) | **Atendido** |
 | **ASR11** — Nenhum evento confirmado se perde | Desafio 4 | Recuperabilidade / R | Outbox transacional, novas tentativas e reenvio manual, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): queda forçada e 1.601 de 1.601 notificações; prints ([queda](evidencias/img/d4-03-queda-processo.png), [recuperação](evidencias/img/d4-04-recuperado.png)) | **Atendido** em uma réplica; várias réplicas sem teste |
+| **ASR12** — Evento confirmado sobrevive à conexão instável | Desafio 5 | Conectividade intermitente e Disponibilidade / R | QoS 1 e sessão persistente, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`MqttBrokerIntegrationTest`](../../src/test/java/org/example/ac1devops/iot/internal/adapter/mqtt/MqttBrokerIntegrationTest.java); [fluxo real](evidencias/d5-fluxo-real.txt) | **Atendido** em um gateway |
+| **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições | **Atendido** |
+| **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py) | **Atendido**; autenticação e TLS pendentes para uso real |
 
 ---
 
@@ -1358,45 +1361,263 @@ docker compose stop postgres
 
 ---
 
-## Desafio 5
+## Desafio 5 — IoT e MQTT
 
-> **Status:** aguardando enunciado.
+Como eventos de presença, início e conclusão, gerados por dispositivos com poucos recursos e conexão instável, entram na plataforma
+sem acoplar o Core a cada dispositivo.
 
 ### 1. RF
 
-A preencher.
+> **Numeração:** RF06 segue o enunciado deste desafio; não confundir com o RF06 do Desafio 1 (listar alunos).
+
+| RF | Estado | Classes / endpoints reais | Efeito deste desafio |
+|---|---|---|---|
+| **RF06 — Receber eventos IoT e encaminhá-los ao ecossistema** | **Existe**, com dispositivo simulado. | Tópico `labs/{lab}/devices/{deviceId}/events` → `MqttDeviceEventGateway` → `DeviceEventProcessor` → `ActivityCompletionPort` ← `CursosActivityCompletionAdapter` → `CursosApi`; `GET /iot/eventos` | Módulo novo `iot` e [simulador](../../labs/desafio-5/simulador/simulador.py). |
+
+Conclusão aciona o fluxo do Desafio 4. Presença e início são **apenas registrados**, porque ainda não têm consumidor.
 
 ### 2. RNF (FURPS+)
 
-A preencher.
+| RNF | FURPS+ | Meta mensurável | Resultado |
+|---|---|---|---|
+| **Tolerância à conectividade intermitente** | R (Reliability) | Evento confirmado chega depois de queda do dispositivo, do Core ou do broker | Atendida nos três casos |
+| **Disponibilidade** | R (Reliability) | Core opera sem o broker | Atendida: sobe, conclui por HTTP e conecta sozinho quando o broker volta |
+| **Interoperabilidade** | + (requisito de interface) | Dispositivo só conhece broker, tópico e JSON | Atendida: simulador em Python, sem dependência do Core |
+| **Eficiência de comunicação** | P (Performance) | Menos bytes de protocolo que HTTP | Atendida: 42 bytes contra 109 por evento, antes de TLS e autenticação |
+| **Escalabilidade** | P (Performance: capacidade) | Vazão do gateway | **Não medida**; um único gateway, uma mensagem por vez |
+| **Segurança de integração** | + (restrição) | Rejeitar o que não é do dispositivo; TLS e credenciais | **Parcial:** valida conteúdo, tamanho e tópico; sem TLS nem autenticação |
 
 ### 3. ASR
 
-A preencher.
+| ASR | RNF de origem | Como altera a arquitetura (uma frase) |
+|---|---|---|
+| **ASR12 — Evento confirmado sobrevive à conexão instável** | Conectividade intermitente e Disponibilidade | Altera a **comunicação**: dispositivos e Core passam a falar por um broker com QoS 1 e sessão persistente, sem precisar estar no ar ao mesmo tempo. |
+| **ASR13 — Um único efeito por evento, mesmo com reentrega** | Consistência da integração | Altera os **dados**: cada `eventId` é registrado com restrição única, e o efeito é aplicado antes do registro. |
+| **ASR14 — Core desacoplado dos dispositivos** | Interoperabilidade | Altera a **estrutura e a implantação**: entra um broker no sistema, e só o adapter do módulo `iot` conhece MQTT. |
+
+Eficiência é uma vantagem, mas não gera ASR: a diferença de bytes sozinha não mudaria a arquitetura. Segurança também não gera ASR
+**neste laboratório**, mas é pré-requisito para qualquer uso real (item 9).
 
 ### 4. RPC
 
-A preencher.
+| RPC | Restrição | Impacto na decisão |
+|---|---|---|
+| **RPC11** | Dispositivos com baixo poder computacional. | Protocolo e cliente precisam ser leves. |
+| **RPC12** | Conectividade intermitente. | Nenhum fluxo pode exigir dispositivo e Core no ar ao mesmo tempo. |
+| **RPC13** | Protocolo e broker adicionam componentes operacionais. | Cada componente novo precisa de ASR que o justifique. |
 
 ### 5. Decisão do Tech Lead
 
-A preencher.
+**REST é suficiente?** **Não, para este cenário.** REST funcionaria com rede estável, mas cada dispositivo precisaria guardar eventos,
+repetir envios e conhecer o endereço do Core, e o Core teria que estar no ar no momento do envio.
+
+**O que MQTT resolve especificamente?**
+
+| Recurso | Problema que resolve | Evidência |
+|---|---|---|
+| **Cabeçalho leve** | Menos bytes por evento: 42 contra 109 no HTTP mínimo. É um ganho **modesto** (214 contra 281 bytes por evento); não é o principal motivo | `--modo tamanho` |
+| **QoS 1** | O dispositivo sabe que o broker recebeu, e quem não recebeu a confirmação reenvia | Modos `normal`, `reenvio` e `offline` |
+| **Sessão persistente** | O broker guarda eventos com o Core fora do ar, inclusive depois de reiniciar | Testes com Core e broker reiniciados |
+| **Retained** | Quem assinar depois recebe o último estado do dispositivo | `mosquitto_sub` recebeu o status guardado |
+| **LWT** | O broker avisa quando um dispositivo some sem se despedir | **Configurado**, mas a queda abrupta não foi exercitada |
+
+**Depois do MQTT, existe motivo para outro broker?** **Não.** O Mosquitto leva o evento até o gateway; a partir daí, a conclusão usa a
+outbox do Desafio 4. RabbitMQ ou Kafka só entrariam com uma ASR própria, como um consumidor externo dos eventos.
+
+**Como impedir duplicidade ou perda relevante?**
+
+| Risco | Proteção |
+|---|---|
+| Reentrega do QoS 1 ou reenvio do dispositivo | `eventId` único em `iot_events`; a repetição é descartada e contada |
+| Queda entre aplicar o efeito e registrar o evento | Efeito **antes** do registro, e conclusão idempotente por aluno e curso: a reentrega conclui de novo sem efeito |
+| Falha temporária no Core | Exceção impede a confirmação; o broker reentrega na reconexão |
+| Evento inválido | Log e confirmação, para não travar a fila |
+| Core fora do ar | Sessão persistente, com mensagens em disco no broker |
+
+**Decisão:** **MQTT + consumidor (alternativa B)**, com Paho direto, sem Spring Integration, por ser uma única rota de entrada. Registro
+formal no [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md).
 
 ### 6. Alternativas e trade-offs
 
-A preencher.
+| Critério | (A) REST direto | (B) MQTT + consumidor | (C) MQTT + mensageria interna |
+|---|---|---|---|
+| Core fora do ar | Dispositivo precisa guardar e repetir | **Broker guarda** | Broker guarda |
+| Dispositivo conhece | Endereço e API do Core | **Só broker e tópico** | Só broker e tópico |
+| Confirmação de recebimento | Resposta HTTP, com o Core no ar | **QoS 1, com o broker** | QoS 1, com o broker |
+| Bytes de protocolo por evento | 109, no mínimo | **42** | 42 |
+| Serviços novos | 0 | **1** | 2 |
+| Consumidores externos | Não | Só com novos gatilhos | **Sim** |
+| Aderência às RPCs | Conflita com a RPC12 | **Atende** | Custo da RPC13 sem ASR |
 
 ### 7. ADR
 
-A preencher.
+[**ADR-005 — Eventos de dispositivos por MQTT, com gateway no Core e sem segundo broker**](adr/ADR-005-iot-com-mqtt-e-gateway.md)
+— status **Aceito**, 2026-11-03.
 
 ### 8. C4
 
-A preencher.
+Nível afetado: **Container**. O gateway é um módulo no mesmo processo do Core, destacado para mostrar a fronteira.
+
+```mermaid
+C4Container
+  title Educação Continuada Gamificada — Containers com dispositivos e broker MQTT
+
+  Person(aluno, "Aluno")
+  System_Ext(dispositivos, "Dispositivos de laboratório", "Poucos recursos e conexão instável; simulados em Python com paho-mqtt")
+
+  System_Boundary(plataforma, "Plataforma") {
+    Container(broker, "Broker MQTT", "Eclipse Mosquitto 2.0, porta 1883", "QoS 1, sessões e mensagens guardadas em disco")
+    Container(gateway, "Gateway de dispositivos", "Módulo iot, Paho, no processo do Core", "Valida, transforma e descarta duplicados por eventId")
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 — Monólito Modular", "Fluxo de conclusão, recompensa e outbox do Desafio 4")
+    ContainerDb(db, "Banco relacional", "PostgreSQL 16 (porta 5433 no host)", "Inclui iot_events, course_completions e course_outbox_events")
+  }
+
+  Rel(dispositivos, broker, "Publica eventos JSON, QoS 1", "MQTT")
+  Rel(gateway, broker, "Assina labs/+/devices/+/events, sessão persistente", "MQTT")
+  Rel(gateway, core, "Conclusão pela CursosApi", "Chamada em processo")
+  Rel(gateway, db, "Registra eventos", "JPA/JDBC")
+  Rel(core, db, "Conclusão, XP e outbox", "JPA/JDBC")
+  Rel(aluno, core, "Usa", "HTTPS")
+```
+
+**Fluxo do evento**, com reentrega e dispositivo ou Core fora do ar:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Disp as Dispositivo
+    participant Broker as Mosquitto
+    participant GW as Core: gateway iot
+    participant DB as PostgreSQL
+    participant Cursos as Core: cursos
+
+    Note over Disp,Broker: sem conexão, o dispositivo guarda e entrega ao reconectar
+    Disp->>Broker: PUBLISH QoS 1 (eventId, tipo conclusao)
+    Broker-->>Disp: PUBACK
+    Note over Broker,GW: com o Core fora do ar, o broker guarda (sessão persistente)
+    Broker->>GW: entrega o evento
+    GW->>GW: valida e transforma
+    alt evento inválido
+        GW->>GW: registra no log
+        GW-->>Broker: PUBACK, sem reentrega
+    else eventId já registrado
+        GW->>DB: conta a duplicata
+        GW-->>Broker: PUBACK, sem novo efeito
+    else evento novo
+        GW->>Cursos: conclui o curso (idempotente por aluno e curso)
+        Cursos->>DB: conclusão, XP e outbox, na mesma transação
+        GW->>DB: registra o eventId
+        GW-->>Broker: PUBACK
+    else falha temporária
+        GW--xBroker: derruba a conexão, sem PUBACK
+        Broker->>GW: reentrega na reconexão
+    end
+```
 
 ### 9. Evidência
 
-A preencher.
+**Hipótese testada:** com QoS 1, sessão persistente e idempotência por `eventId`, um evento confirmado chega exatamente com um efeito, mesmo com
+dispositivo, Core ou broker fora do ar, sem acoplar o Core aos dispositivos e sem um segundo broker.
+
+| # | O que se testa | Como reproduzir | Resultado obtido |
+|---|---|---|---|
+| 1 | Transformação e validação, sem broker | `mvnw.cmd test -Dtest=DeviceEventTest,MqttDeviceEventGatewayTest` | Campos viram o modelo da aplicação; JSON inválido, campo ausente, tipo desconhecido e `deviceId` diferente do tópico são descartados. |
+| 2 | Duplicado e ordem do efeito, sem broker | `mvnw.cmd test -Dtest=DeviceEventProcessorTest` | Repetição não aciona a conclusão; falha temporária não registra o evento, e a nova entrega conclui. |
+| 3 | Broker real, com Testcontainers | `mvnw.cmd test -Dtest=MqttBrokerIntegrationTest` | 4 testes em cerca de 32 s: reentrega descartada, sessão persistente, falha temporária reentregue e referência desconhecida sem travar a fila. |
+| 4 | Fronteira do MQTT | `mvnw.cmd test -Dtest=ModularArchitectureTest` | Só `iot.internal.adapter.mqtt` conhece o Paho. |
+| 5 | Simulador | `cd labs\desafio-5\simulador`, `py -m pytest` | **9 testes verdes**, também em um job próprio no CI. |
+| 6 | Fluxo real | Roteiro abaixo | Tabela abaixo e [`d5-fluxo-real.txt`](evidencias/d5-fluxo-real.txt). |
+| 7 | Build completo | `mvnw.cmd -B clean verify` | **159 testes**, 0 falhas. Cobertura: linhas 666/668 (99,7%) e branches 82/82; faltam as 2 linhas do tratamento de erro ao desconectar do broker. |
+
+#### Resultados do fluxo real
+
+Mosquitto real, Core em jar, simulador em Python e o PostgreSQL 16 do projeto. Execução única, em 2026-11-03.
+
+| Cenário | Resultado |
+|---|---|
+| Modo normal | 3 eventos `ACCEPTED`; a conclusão deu 150 XP |
+| Reenvio do mesmo `eventId` | 1 registro, `duplicatesDiscarded: 1`; 100 XP, uma vez |
+| Dispositivo offline | 2 eventos guardados e entregues ao reconectar; 200 XP |
+| Mensagens inválidas | 3 descartadas no log: JSON inválido, `alunoId` ausente e `deviceId` diferente do tópico |
+| Core fora do ar | Broker confirmou 3 eventos; todos processados quando o Core voltou; 150 XP e notificação pela outbox |
+| Broker reiniciado, com o Core fora | Mensagens guardadas em disco; todos os 3 eventos processados |
+| Core sem broker | Core subiu e concluiu por HTTP com 201; conectou sozinho quando o broker voltou |
+| Total | 16 eventos e 7 conclusões do aluno testado: **0 `eventId` repetidos, 0 conclusões repetidas e 0 alunos com XP divergente** (900 XP) |
+
+#### Roteiro manual
+
+Comandos em PowerShell, na raiz do projeto. Usa as portas 1883 (Mosquitto), 5433 (PostgreSQL) e 8080 (Core).
+
+```powershell
+# Terminal 1: sobe PostgreSQL e Mosquitto, instala o cliente MQTT e gera o jar
+docker compose up -d --wait postgres mosquitto
+py -m pip install -r labs\desafio-5\simulador\requirements.txt
+.\mvnw.cmd -B package -DskipTests
+
+# Terminal 2: sobe o Core
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/ac1devops_db"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+
+# Terminal 1: cria um aluno e publica presenca, inicio e conclusao (print d5-01)
+$id = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/students -ContentType application/json -Body '{"name":"Aluno IoT"}').id; "Aluno $id"
+py labs\desafio-5\simulador\simulador.py --modo normal --aluno $id --atividade ci-cd
+Start-Sleep 2
+Invoke-RestMethod http://localhost:8080/iot/eventos | ForEach-Object { $_ } | Where-Object studentId -eq $id | Format-Table type,activityId,status,duplicatesDiscarded -AutoSize
+curl.exe -s "http://localhost:8080/students/$id"; ""
+
+# Terminal 1: reenvia o mesmo evento: 1 registro, duplicatesDiscarded=1 e XP uma vez (print d5-02)
+py labs\desafio-5\simulador\simulador.py --modo reenvio --aluno $id --atividade docker-essencial
+Start-Sleep 2
+Invoke-RestMethod http://localhost:8080/iot/eventos | ForEach-Object { $_ } | Where-Object studentId -eq $id | Format-Table type,activityId,status,duplicatesDiscarded -AutoSize
+curl.exe -s "http://localhost:8080/students/$id"; ""
+
+# Terminal 1: dispositivo perde a conexao, guarda eventos e entrega ao reconectar (print d5-03)
+py labs\desafio-5\simulador\simulador.py --modo offline --aluno $id --atividade observabilidade --segundos-offline 5
+Start-Sleep 2
+Invoke-RestMethod http://localhost:8080/iot/eventos | ForEach-Object { $_ } | Where-Object activityId -eq observabilidade | Format-Table type,activityId,status -AutoSize
+
+# Terminal 1: mensagens invalidas; veja os avisos "Evento IoT invalido descartado" no Terminal 2
+py labs\desafio-5\simulador\simulador.py --modo invalido --aluno $id
+
+# Terminal 1: encerra o Core, e o dispositivo publica com o Core fora do ar (print d5-04)
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object CommandLine -like '*Grupo10_ATDD*' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; "Core encerrado: PID $($_.ProcessId)" }
+py labs\desafio-5\simulador\simulador.py --modo normal --aluno $id --atividade arquitetura-software
+
+# Terminal 2: sobe o Core de novo
+java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+
+# Terminal 1, depois que o Core subir: os eventos guardados pelo broker chegaram (ainda print d5-04)
+Invoke-RestMethod http://localhost:8080/iot/eventos | ForEach-Object { $_ } | Where-Object activityId -eq arquitetura-software | Format-Table type,activityId,status -AutoSize
+curl.exe -s "http://localhost:8080/students/$id"; ""
+
+# Opcional: tamanho do evento em MQTT e em HTTP
+py labs\desafio-5\simulador\simulador.py --modo tamanho
+
+# Ao terminar: Ctrl+C no Terminal 2 e depois, no Terminal 1:
+docker compose stop postgres mosquitto
+```
+
+Prints a salvar em `docs/arquitetura/evidencias/img/`:
+
+| Arquivo | O que mostrar |
+|---|---|
+| `d5-01-eventos-normais.png` | Modo normal, 3 eventos `ACCEPTED` e o XP do aluno |
+| `d5-02-reenvio-duplicado.png` | Mesmo `eventId` nos 2 envios, `duplicatesDiscarded` igual a 1 e XP somado uma vez |
+| `d5-03-dispositivo-offline.png` | `conexao perdida`, eventos guardados, `reconectado` e os eventos `ACCEPTED` |
+| `d5-04-core-fora.png` | Core encerrado, publicação confirmada e eventos `ACCEPTED` depois de o Core voltar |
+| `d5-05-ci-verde.png` | Run do GitHub com os 3 jobs verdes |
+
+#### Limites desta evidência
+
+- **Segurança:** sem TLS nem autenticação no laboratório. A porta só é publicada em `localhost`. Antes de qualquer uso real: TLS, credencial por
+  dispositivo e ACL por tópico.
+- **Escalabilidade e vazão:** não foram medidas. Há um único gateway, e duas réplicas do Core com o mesmo identificador derrubariam uma à outra.
+- **LWT:** configurado, mas a queda abrupta do dispositivo não foi exercitada; verificado apenas o status guardado (retained).
+- **Dispositivo real:** a fila do simulador fica em memória e não sobrevive a um reinício do dispositivo.
+- **Sem fila de mensagens mortas:** um erro permanente inesperado seria reentregue sem fim, e mensagens inválidas ficam só no log.
+- **Limite do broker:** até 10.000 mensagens por cliente desconectado.
+- **Presença e início:** registrados sem consultar se o aluno existe, porque ainda não têm consumidor.
+- **Roteiro:** os modos foram executados com um ambiente Python isolado, não com o `py` global; depois de instalar o `requirements.txt`, o comportamento
+  deve ser o mesmo.
 
 ---
 
@@ -1457,11 +1678,12 @@ sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`) e #4 (`3c3cce2`). O prin
 | Artefato | Caminho |
 |---|---|
 | Repositório | <https://github.com/GuilhermDias/AC1-Devops> |
-| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md), [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) |
-| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component). Desafio 3: item 8 (Container). Desafio 4: item 8 (Container e sequência) |
-| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java), [`RecomendacaoApi`](../../src/main/java/org/example/ac1devops/recomendacao/api/RecomendacaoApi.java), [`CursosApi`](../../src/main/java/org/example/ac1devops/cursos/api/CursosApi.java), [`NotificacoesApi`](../../src/main/java/org/example/ac1devops/notificacoes/api/NotificacoesApi.java) |
+| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md), [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md), [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) |
+| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component). Desafio 3: item 8 (Container). Desafio 4: item 8 (Container e sequência). Desafio 5: item 8 (Container e sequência) |
+| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java), [`RecomendacaoApi`](../../src/main/java/org/example/ac1devops/recomendacao/api/RecomendacaoApi.java), [`CursosApi`](../../src/main/java/org/example/ac1devops/cursos/api/CursosApi.java), [`NotificacoesApi`](../../src/main/java/org/example/ac1devops/notificacoes/api/NotificacoesApi.java), [`IotApi`](../../src/main/java/org/example/ac1devops/iot/api/IotApi.java) |
 | Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
 | Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | Serviço de IA | [`labs/desafio-3/ia-service`](../../labs/desafio-3/ia-service/) |
+| Simulador e broker IoT | [`labs/desafio-5`](../../labs/desafio-5/) |
 | Relatório de cobertura | Artifact `jacoco-report` de cada run do CI; local em `target/site/jacoco/index.html`; CSVs em [`evidencias/`](evidencias/) |
 | Prova de violação barrada | [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt) |
