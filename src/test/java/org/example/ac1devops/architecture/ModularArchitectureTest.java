@@ -25,7 +25,8 @@ class ModularArchitectureTest {
 
     private static final String ROOT = "org.example.ac1devops";
 
-    static final List<String> MODULES = List.of("progression", "ranking", "conquistas", "recomendacao");
+    static final List<String> MODULES = List.of(
+            "progression", "ranking", "conquistas", "recomendacao", "cursos", "notificacoes");
 
     private static String module(String name) {
         return ROOT + "." + name + "..";
@@ -88,6 +89,10 @@ class ModularArchitectureTest {
             .layer("ConquistasInternal").definedBy(internal("conquistas"))
             .layer("RecomendacaoApi").definedBy(api("recomendacao"))
             .layer("RecomendacaoInternal").definedBy(internal("recomendacao"))
+            .layer("CursosApi").definedBy(api("cursos"))
+            .layer("CursosInternal").definedBy(internal("cursos"))
+            .layer("NotificacoesApi").definedBy(api("notificacoes"))
+            .layer("NotificacoesInternal").definedBy(internal("notificacoes"))
             .layer("Config").definedBy(ROOT + ".config..")
             .whereLayer("Web").mayNotBeAccessedByAnyLayer()
             .whereLayer("Config").mayNotBeAccessedByAnyLayer()
@@ -95,18 +100,23 @@ class ModularArchitectureTest {
             .whereLayer("RankingInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("ConquistasInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("RecomendacaoInternal").mayNotBeAccessedByAnyLayer()
+            .whereLayer("CursosInternal").mayNotBeAccessedByAnyLayer()
+            .whereLayer("NotificacoesInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionApi").mayOnlyBeAccessedByLayers(
                     "Web", "ProgressionInternal", "RankingApi", "RankingInternal", "ConquistasInternal",
-                    "RecomendacaoInternal")
+                    "RecomendacaoInternal", "CursosApi", "CursosInternal", "NotificacoesInternal")
             .whereLayer("RankingApi").mayOnlyBeAccessedByLayers("Web", "RankingInternal")
             .whereLayer("ConquistasApi").mayOnlyBeAccessedByLayers("Web", "ConquistasInternal")
-            .whereLayer("RecomendacaoApi").mayOnlyBeAccessedByLayers("Web", "RecomendacaoInternal");
+            .whereLayer("RecomendacaoApi").mayOnlyBeAccessedByLayers("Web", "RecomendacaoInternal")
+            .whereLayer("CursosApi").mayOnlyBeAccessedByLayers("Web", "CursosInternal", "NotificacoesInternal")
+            .whereLayer("NotificacoesApi").mayOnlyBeAccessedByLayers("Web", "NotificacoesInternal");
 
     @ArchTest
     static final ArchRule progressionNaoConheceOutrosModulos = noClasses()
             .that().resideInAPackage(module("progression"))
             .should().dependOnClassesThat().resideInAnyPackage(
-                    module("ranking"), module("conquistas"), module("recomendacao"))
+                    module("ranking"), module("conquistas"), module("recomendacao"),
+                    module("cursos"), module("notificacoes"))
             .because("os outros modulos dependem de progression (pela api e por eventos), nunca o contrario");
 
     @ArchTest
@@ -120,7 +130,7 @@ class ModularArchitectureTest {
     /** Inversao de dependencia do ADR-002: os adapters conhecem a porta, nunca o contrario. */
     @ArchTest
     static void nadaDependeDosAdapters(JavaClasses classes) {
-        for (String name : List.of("conquistas", "recomendacao")) {
+        for (String name : List.of("conquistas", "recomendacao", "notificacoes")) {
             noClasses()
                     .that().resideOutsideOfPackage(internal(name) + "adapter..")
                     .should().dependOnClassesThat().resideInAPackage(internal(name) + "adapter..")
@@ -132,9 +142,23 @@ class ModularArchitectureTest {
     /** ADR-003: o fluxo essencial nao pode depender de IA, nem indiretamente pelo codigo. */
     @ArchTest
     static final ArchRule fluxoEssencialNaoConheceRecomendacao = noClasses()
-            .that().resideInAnyPackage(module("ranking"), module("conquistas"))
+            .that().resideInAnyPackage(module("ranking"), module("conquistas"), module("cursos"))
             .should().dependOnClassesThat().resideInAPackage(module("recomendacao"))
-            .because("a indisponibilidade do servico de IA nao pode alcancar ranking nem conquistas");
+            .because("a indisponibilidade do servico de IA nao pode alcancar o fluxo essencial");
+
+    /** ADR-004: quem conclui o curso nao conhece os consumidores do evento. */
+    @ArchTest
+    static final ArchRule cursosNaoConheceNotificacoes = noClasses()
+            .that().resideInAPackage(module("cursos"))
+            .should().dependOnClassesThat().resideInAPackage(module("notificacoes"))
+            .because("a conclusao do curso nao pode depender do consumidor do evento");
+
+    /** ADR-004: o consumidor so conhece o evento publicado, nao a outbox nem a transacao de conclusao. */
+    @ArchTest
+    static final ArchRule notificacoesSoConheceAApiDeCursos = noClasses()
+            .that().resideInAPackage(module("notificacoes"))
+            .should().dependOnClassesThat().resideInAPackage(internal("cursos"))
+            .because("o consumidor recebe apenas CursoConcluidoEvent");
 
     @ArchTest
     static final ArchRule controllersFicamNaCamadaWeb = classes()

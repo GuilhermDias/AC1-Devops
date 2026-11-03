@@ -13,7 +13,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # 5433 no host: a 5432 pode estar ocupada por um PostgreSQL local.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # A app so sobe depois que o banco responde de fato (nao basta o container existir).

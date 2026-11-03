@@ -4,6 +4,8 @@ import java.util.List;
 import org.example.ac1devops.conquistas.internal.domain.AwardedBadgePort;
 import org.example.ac1devops.conquistas.internal.domain.Badge;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /** Adapter de producao da {@link AwardedBadgePort}: traduz entre o dominio e a tabela {@code student_badges}. */
 @Component
@@ -22,7 +24,9 @@ public class JpaAwardedBadgeAdapter implements AwardedBadgePort {
                 .toList();
     }
 
+    /** Transacao propria: a avaliacao pode rodar depois do commit de outra, em que nada mais seria gravado. */
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void award(Long studentId, Badge badge) {
         repository.save(new AwardedBadgeEntity(studentId, badge.code(), badge.description()));
     }

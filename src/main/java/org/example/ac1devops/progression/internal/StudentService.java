@@ -25,6 +25,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Implementacao interna de {@link StudentProgressionApi}: ponte entre {@link StudentEntity}
@@ -71,6 +73,15 @@ public class StudentService implements StudentProgressionApi {
                     new StudentScoreChangedEvent(applied.student().getId(), applied.student().getXpTotal()));
         }
         return response;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public StudentResponseDTO grantXpInCurrentTransaction(Long id, ReceiveXpRequestDTO request) {
+        AppliedXp applied = applyXp(id, request);
+        eventPublisher.publishEvent(
+                new StudentScoreChangedEvent(applied.student().getId(), applied.student().getXpTotal()));
+        return toResponseDTO(applied.student());
     }
 
     private AppliedXp applyXpWithRetry(Long id, ReceiveXpRequestDTO request) {

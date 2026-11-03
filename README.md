@@ -46,7 +46,7 @@ docker compose up -d --build
 | API | `http://localhost:8080` | — |
 | Swagger UI | `http://localhost:8080/swagger-ui/index.html` | — |
 | pgAdmin | `http://localhost:5050` | `admin@admin.com` / `admin` |
-| Postgres | `localhost:5432` (banco `ac1devops_db`) | `postgres` / `postgres` |
+| Postgres | `localhost:5433` (banco `ac1devops_db`) | `postgres` / `postgres` |
 | Serviço de IA | `http://localhost:8000` (`/health`, `/docs`) | — |
 
 Para conectar no banco pelo pgAdmin, cadastre um servidor apontando para o host **`postgres`**
@@ -125,6 +125,10 @@ piso de cobertura JaCoCo) em todo push e Pull Request.
 | `GET` | `/ranking/top?n` | Os `n` primeiros colocados | `200`, `400` |
 | `GET` | `/ranking/students/{id}` | Posição de um aluno | `200`, `404` |
 | `GET` | `/conquistas/students/{id}` | Badges do aluno | `200`, `404` |
+| `POST` | `/cursos/{courseId}/alunos/{studentId}/conclusao` | Conclui o curso e concede a recompensa | `201`, `200` se já concluído, `404`, `409` |
+| `GET` | `/cursos/eventos` | Estado da entrega dos eventos de conclusão mais recentes | `200` |
+| `POST` | `/cursos/eventos/{id}/reenvio` | Devolve para a fila um evento com tentativas esgotadas | `202`, `404` |
+| `GET` | `/notificacoes/students/{id}` | Notificações enviadas ao aluno | `200`, `404` |
 | `GET` | `/recomendacoes/students/{id}` | Recomendações de cursos; `degraded: true` indica a lista de populares, usada quando o serviço de IA não responde | `200`, `404` |
 
 Serviço de IA, na porta 8000 ([`labs/desafio-3/ia-service`](labs/desafio-3/ia-service/)):

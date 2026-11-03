@@ -24,6 +24,15 @@ public interface StudentProgressionApi {
     StudentResponseDTO receiveXp(Long id, ReceiveXpRequestDTO request);
 
     /**
+     * Concede XP dentro da transacao de quem chama, para outro modulo gravar seus dados de forma
+     * atomica com a recompensa. Nao repete em caso de conflito: um conflito invalida a transacao
+     * inteira, e quem a abriu decide se repete. O evento de pontuacao so sai depois do commit.
+     *
+     * @throws StudentNotFoundException se nao existir aluno com o {@code id} informado
+     */
+    StudentResponseDTO grantXpInCurrentTransaction(Long id, ReceiveXpRequestDTO request);
+
+    /**
      * @throws StudentNotFoundException se nao existir aluno com o {@code id} informado
      */
     StudentResponseDTO getStudent(Long id);
