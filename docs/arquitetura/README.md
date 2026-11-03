@@ -69,7 +69,7 @@ A numeração é global, de ASR1 a ASR17.
 | **ASR12** — Evento confirmado sobrevive à conexão instável | Desafio 5 | Conectividade intermitente e Disponibilidade / R | QoS 1 e sessão persistente, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`MqttBrokerIntegrationTest`](../../src/test/java/org/example/ac1devops/iot/internal/adapter/mqtt/MqttBrokerIntegrationTest.java); [fluxo real](evidencias/d5-fluxo-real.txt); prints ([dispositivo offline](evidencias/img/d5-03-dispositivo-offline.png), [Core fora do ar](evidencias/img/d5-04-core-fora.png)) | **Atendido** em um gateway |
 | **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições; [print do reenvio](evidencias/img/d5-02-reenvio-duplicado.png) | **Atendido** |
 | **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py); prints ([eventos](evidencias/img/d5-01-eventos-normais.png), [CI](evidencias/img/d5-05-ci-verde.png)) | **Atendido**; autenticação e TLS pendentes para uso real |
-| **ASR15** — Nenhum artefato sai sem passar pelos gates | Desafio 6 | Testabilidade e Confiabilidade / S, R | Esteira única com estágios por componente, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`Jenkinsfile`](../../Jenkinsfile); [build #1 no Jenkins](evidencias/img/d6-01-jenkins-verde.png): 182 testes, 0 falhas; [artefatos](evidencias/img/d6-02b-jenkins-artefatos.png) | **Atendido**; a interrupção por um gate com falha não foi provocada dentro do Jenkins |
+| **ASR15** — Nenhum artefato sai sem passar pelos gates | Desafio 6 | Testabilidade e Confiabilidade / S, R | Esteira única com estágios por componente, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`Jenkinsfile`](../../Jenkinsfile); [build #2 no Jenkins](evidencias/img/d6-01-jenkins-verde.png): [189 testes, 0 falhas](evidencias/img/d6-02a-jenkins-testes.png), gate de 100%; [artefatos](evidencias/img/d6-02b-jenkins-artefatos.png) | **Atendido**; a interrupção por um gate com falha não foi provocada dentro do Jenkins |
 | **ASR16** — ASRs de execução observáveis em operação | Desafio 6 | Observabilidade e Desempenho / S, P | Métricas por ASR, Prometheus e Grafana, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`ObservabilityIntegrationTest`](../../src/test/java/org/example/ac1devops/web/ObservabilityIntegrationTest.java); [fluxo real](evidencias/d6-observabilidade.txt): fallback de 90,8% com alerta ativo; prints ([painel](evidencias/img/d6-04-grafana-painel.png), [fallback](evidencias/img/d6-05a-fallback.png), [alerta](evidencias/img/d6-05b-alerta.png)) | **Atendido** |
 | **ASR17** — Operação reproduzível a partir do repositório | Desafio 6 | Recuperabilidade / R | Configurações versionadas e compose próprio, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`observabilidade/`](../../observabilidade/); [fluxo real](evidencias/d6-observabilidade.txt): recriado do zero; [Prometheus](evidencias/img/d6-03-prometheus-alvos.png) | **Atendido** para a observabilidade; o job do Jenkins é criado manualmente |
 
@@ -1661,7 +1661,7 @@ Este desafio não cria funcionalidade: atua sobre **todos os RFs**, na operaçã
 |---|---|---|---|
 | **Observabilidade** | S (Supportability: serviceability) | Latência, 5xx, throughput e uma métrica por ASR de execução em um painel | Atendida: 10 painéis, todos com dados no teste |
 | **Testabilidade** | S (Supportability) | Todos os gates automatizados | Atendida: 168 testes no Core, 12 e 9 nos componentes Python |
-| **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida: build #1 no Jenkins com todos os estágios verdes |
+| **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida: build #2 no Jenkins com todos os estágios verdes, inclusive o gate de 100% |
 | **Deploy independente** | + (restrição de implantação) | Artefatos separados, verificados por componente | Atendida: jar e imagem separados; sem publicação automática |
 | **Recuperabilidade** | R (Reliability) | Ambiente de observação recriado com um comando | Atendida: compose com tudo versionado, recriado do zero no teste |
 | **Desempenho** | P (Performance) | p95 do ranking ≤ 300 ms, com 100.000 alunos | Top 100: 114 ms. Posição: 79 ms. Página aleatória: 317 ms sob 10 threads |
@@ -1786,8 +1786,8 @@ C4Deployment
 | 2 | Métricas expostas | `mvnw.cmd test -Dtest=ObservabilityIntegrationTest` | As métricas dos ASRs aparecem em `/actuator/prometheus`; `/actuator/env` responde 404. |
 | 3 | Domínio sem métricas | `mvnw.cmd test -Dtest=ModularArchitectureTest` | Regra `dominioSemFrameworkNemAdapters` inclui Micrometer. |
 | 4 | Fluxo real, com falha provocada | Roteiro abaixo | Tabela abaixo e [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt). |
-| 5 | Esteira no Jenkins | Job `ac1devops-b1`, passo a passo abaixo | **Build #1 verde em 5 min 15 s; 182 testes, 0 falhas**; jar e relatório do JaCoCo arquivados. |
-| 6 | GitHub Actions | Push na branch | Run #7 (`9552ea7`): **Success, 3 jobs verdes**, em 1m 52s. |
+| 5 | Esteira no Jenkins | Job `ac1devops-b1`, passo a passo abaixo | **Build #2 verde em 4 min 30 s; 189 testes, 0 falhas; gate de 100% do JaCoCo aprovado**. O build #1 também ficou verde, com o gate anterior. |
+| 6 | GitHub Actions | Push na branch | Run #7 (`9552ea7`): **Success, 3 jobs verdes**, em 1m 52s. Run #8 (`6b463f3`, com o gate de 100%): Success, conforme a API do GitHub. |
 | 7 | Build completo | `mvnw.cmd -B clean verify` | **168 testes**, 0 falhas. **100% de cobertura, sem exclusões**: linhas 700/700, branches 86/86, instruções 3326/3326 e métodos 278/278. |
 | 8 | O gate de cobertura funciona | `mvnw.cmd clean test -Dtest=OutboxRelayTest`, seguido de `mvnw.cmd jacoco:check@check` | Com um único teste, o build **falha**: `lines covered ratio is 0.02, but expected minimum is 1.00`. Com a suíte inteira, passa. |
 
@@ -1823,21 +1823,21 @@ Execução do Bruno em 2026-11-03, no Jenkins 2.582 local e com o roteiro abaixo
 
 | Item | Valor observado | Print |
 |---|---|---|
-| Esteira no Jenkins, build #1 | **Todos os estágios verdes, em 5 min 15 s**: Build 16 s, ArchUnit 25 s, Testes 2 min 29 s, JaCoCo 6 s, Python em paralelo 1 min 13 s, Artefatos 17 s | [`d6-01`](evidencias/img/d6-01-jenkins-verde.png) |
-| Testes no Jenkins | **182 testes, 0 falhas** | [`d6-02a`](evidencias/img/d6-02a-jenkins-testes.png) |
-| Artefatos no Jenkins | `Grupo10_ATDD-0.0.1-SNAPSHOT.jar`, 63,42 MiB, e `site/jacoco` | [`d6-02b`](evidencias/img/d6-02b-jenkins-artefatos.png) |
+| Esteira no Jenkins, build #2 | **Todos os estágios verdes, em 4 min 30 s**: Build 22 s, ArchUnit 36 s, Testes 2 min 31 s, JaCoCo 5 s, Python em paralelo 13 s, Artefatos 15 s | [`d6-01`](evidencias/img/d6-01-jenkins-verde.png) |
+| Testes no Jenkins, build #2 | **189 testes, 0 falhas** | [`d6-02a`](evidencias/img/d6-02a-jenkins-testes.png) |
+| Artefatos no Jenkins, print do build #1 | `Grupo10_ATDD-0.0.1-SNAPSHOT.jar`, 63,42 MiB, e `site/jacoco` | [`d6-02b`](evidencias/img/d6-02b-jenkins-artefatos.png) |
 | Prometheus | Alvo `core`: **1/1 UP** | [`d6-03`](evidencias/img/d6-03-prometheus-alvos.png) |
 | Painel no Grafana, antes da queda | Core no ar, 0 req/s de 5xx, e dados nos 10 painéis | [`d6-04`](evidencias/img/d6-04-grafana-painel.png) |
 | Queda do serviço de IA | Fallback de **0% para 100%** | [`d6-05a`](evidencias/img/d6-05a-fallback.png) |
 | Alerta | `FallbackDaIaAlto` **FIRING**; os outros 4 inativos | [`d6-05b`](evidencias/img/d6-05b-alerta.png) |
 | GitHub Actions | Run #7: 3 jobs verdes | [`d6-06`](evidencias/img/d6-06-ci-verde.png) |
 
-Os 182 testes do Jenkins somam os 161 do Core, os 12 do serviço de IA e os 9 do simulador. Esse build é anterior à elevação do gate para 100%, que acrescentou 7 testes ao Core, verificados no build completo local. Essa execução usou banco H2 e poucos dados: os tempos do painel não
+Os 189 testes do Jenkins somam os 168 do Core, os 12 do serviço de IA e os 9 do simulador. O roteiro usou banco H2 e poucos dados: os tempos do painel não
 substituem a medição com 100.000 alunos.
 
 | Esteira no Jenkins | Resultado dos testes |
 |---|---|
-| ![Build #1 com todos os estágios verdes](evidencias/img/d6-01-jenkins-verde.png) | ![182 testes passando](evidencias/img/d6-02a-jenkins-testes.png) |
+| ![Build #2 com todos os estágios verdes](evidencias/img/d6-01-jenkins-verde.png) | ![189 testes passando](evidencias/img/d6-02a-jenkins-testes.png) |
 
 | Artefatos arquivados | Alvo no Prometheus |
 |---|---|
@@ -2107,8 +2107,8 @@ As evidências da AC1 (ciclo RED/GREEN/BLUE, Docker, front-end) ficam em [`evide
 
 ### Histórico do CI
 
-GitHub Actions, branch `feature/b1-architecture-lab`: 7 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`), #4 (`3c3cce2`), #5 (`49ab6b2`), #6 (`7b72aa1`)
-e #7 (`9552ea7`).
+GitHub Actions, branch `feature/b1-architecture-lab`: 8 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`), #4 (`3c3cce2`), #5 (`49ab6b2`), #6 (`7b72aa1`)
+e #7 (`9552ea7`). Depois do print abaixo, o run #8 (`6b463f3`), já com o gate de 100%, também terminou com sucesso, conforme a API do GitHub.
 
 ![Lista com os 7 runs verdes da branch](evidencias/img/b1-ci-historico-final.png)
 
