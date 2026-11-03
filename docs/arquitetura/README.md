@@ -56,10 +56,10 @@ A numeração é global: novos desafios continuam a partir da ASR9.
 | **ASR1** — Evoluir funcionalidades com baixo acoplamento | Desafio 1 | Manutenibilidade / S | Monólito Modular, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); mini-lab (item 9.8) | **Atendido** |
 | **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4) | **Parcial:** medido só em H2, sem carga e sem p95; observabilidade não implementada |
 | **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
-| **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-runs.png) | **Atendido** |
-| **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-runs.png) | **Atendido** |
-| **ASR6** — Indisponibilidade da IA não bloqueia o Core | Desafio 3 | Tolerância a falhas e Desempenho / R, P | Timeout, circuit breaker e fallback, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`RecomendacaoEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/RecomendacaoEndpointIntegrationTest.java); [roteiro](evidencias/d3-roteiro.txt); [falhas simuladas](evidencias/d3-falhas-simuladas.txt) | **Atendido** |
-| **ASR7** — IA publicada e escalada sem o Core | Desafio 3 | Deploy independente e Escalabilidade / +, P | Serviço Python independente, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`Dockerfile`](../../labs/desafio-3/ia-service/Dockerfile); job `ia-service` no [`ci.yml`](../../.github/workflows/ci.yml) | **Parcial:** deploy independente demonstrado; escala sem teste de carga; job ainda sem run no GitHub |
+| **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
+| **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
+| **ASR6** — Indisponibilidade da IA não bloqueia o Core | Desafio 3 | Tolerância a falhas e Desempenho / R, P | Timeout, circuit breaker e fallback, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`RecomendacaoEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/RecomendacaoEndpointIntegrationTest.java); [roteiro](evidencias/d3-roteiro.txt) e prints ([no ar](evidencias/img/d3-02-core-com-ia.png), [fora do ar](evidencias/img/d3-03-core-ia-fora.png), [fluxo essencial](evidencias/img/d3-04-fluxo-essencial.png)); [falhas simuladas](evidencias/d3-falhas-simuladas.txt) | **Atendido** |
+| **ASR7** — IA publicada e escalada sem o Core | Desafio 3 | Deploy independente e Escalabilidade / +, P | Serviço Python independente, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`Dockerfile`](../../labs/desafio-3/ia-service/Dockerfile); job `ia-service` no [`ci.yml`](../../.github/workflows/ci.yml) | **Parcial:** imagem própria demonstrada e serviço parado sem parar o Core ([print](evidencias/img/d3-03-core-ia-fora.png)); escala sem teste de carga; job `ia-service` ainda sem run no GitHub, pois a branch não foi publicada |
 | **ASR8** — Contrato HTTP/JSON verificável pelos dois lados | Desafio 3 | Interoperabilidade / + | Contrato versionado, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`contract/`](../../labs/desafio-3/ia-service/contract/), usado por [`test_api.py`](../../labs/desafio-3/ia-service/tests/test_api.py) e [`IaRecommendationAdapterTest`](../../src/test/java/org/example/ac1devops/recomendacao/internal/adapter/http/IaRecommendationAdapterTest.java) | **Atendido** |
 
 ---
@@ -792,7 +792,7 @@ Run #2 do workflow `CI`, no commit `03007e1`: **Success**. O **aviso de Node.js 
 
 | Lista de runs | Etapas do job e anotações |
 |---|---|
-| ![Lista com os runs #1 e #2 verdes](evidencias/img/d2-ci-verde.png) | ![Run #2 com 1 notice, sem warnings](evidencias/img/d2-ci-runs.png) |
+| ![Lista com os runs #1 e #2 verdes](evidencias/img/d2-ci-verde.png) | ![Run #2 com 1 notice, sem warnings](evidencias/img/d2-ci-etapas.png) |
 
 #### Limites desta evidência
 
@@ -980,6 +980,29 @@ Medidos com `curl` em 2026-11-02, sem carga, em execução única.
 | Serviço lento, pelo Core, com o circuito aberto | **0,007 s** | Populares, `degraded: true` |
 | Serviço de volta, circuito ainda aberto | 0,03 s | Populares, `degraded: true` |
 | Serviço de volta, depois de 30 s | 0,30 s e depois 0,03 s | Recomendação da IA, `degraded: false` |
+
+Execução do Bruno em 2026-11-02, com os mesmos comandos do roteiro e o log SQL ligado no Core:
+
+| Situação | Tempo de resposta | Resposta | Print |
+|---|---|---|---|
+| Serviço no ar, primeira chamada | 0,81 s | Recomendação da IA, `degraded: false` | [`d3-02`](evidencias/img/d3-02-core-com-ia.png) |
+| Serviço fora do ar | 0,12 s | Populares, `degraded: true` | [`d3-03`](evidencias/img/d3-03-core-ia-fora.png) |
+| XP com o serviço fora do ar | 0,14 s | HTTP 200 | [`d3-04`](evidencias/img/d3-04-fluxo-essencial.png) |
+| Ranking com o serviço fora do ar | 0,15 s | HTTP 200 | [`d3-04`](evidencias/img/d3-04-fluxo-essencial.png) |
+
+Os tempos absolutos são maiores que os da primeira tabela, mas o resultado é o mesmo: as respostas continuam
+com 200, e a recomendação passa a `degraded: true` sem esperar pelo serviço parado.
+
+| Serviço no ar e `/health` | Recomendação com a IA |
+|---|---|
+| ![docker run e /health com status ok](evidencias/img/d3-01-ia-health.png) | ![Recomendação com degraded false](evidencias/img/d3-02-core-com-ia.png) |
+
+| `docker stop` e modo degradado | Fluxo essencial com a IA fora |
+|---|---|
+| ![docker stop e recomendação com degraded true](evidencias/img/d3-03-core-ia-fora.png) | ![XP e ranking com HTTP 200](evidencias/img/d3-04-fluxo-essencial.png) |
+
+O teste do serviço lento (`d3-05`) era opcional e não foi repetido nessa execução. Os prints de CI (`d3-06` e `d3-07`)
+dependem da publicação da branch.
 
 #### Roteiro manual
 

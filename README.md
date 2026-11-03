@@ -47,6 +47,7 @@ docker compose up -d --build
 | Swagger UI | `http://localhost:8080/swagger-ui/index.html` | — |
 | pgAdmin | `http://localhost:5050` | `admin@admin.com` / `admin` |
 | Postgres | `localhost:5432` (banco `ac1devops_db`) | `postgres` / `postgres` |
+| Serviço de IA | `http://localhost:8000` (`/health`, `/docs`) | — |
 
 Para conectar no banco pelo pgAdmin, cadastre um servidor apontando para o host **`postgres`**
 (nome do serviço na rede do compose), porta `5432` — não `localhost`, que dentro do container
@@ -117,9 +118,22 @@ piso de cobertura JaCoCo) em todo push e Pull Request.
 | Método | Caminho | Descrição | Respostas |
 |---|---|---|---|
 | `POST` | `/students` | Cria um aluno (`{"name": "..."}`) | `201` |
-| `POST` | `/students/{id}/xp` | Concede XP (`{"reason": "...", "amount": N}`) | `200`, `404` |
+| `POST` | `/students/{id}/xp` | Concede XP (`{"reason": "...", "amount": N}`) | `200`, `404`, `409` |
 | `GET` | `/students/{id}` | Consulta um aluno por id | `200`, `404` |
 | `GET` | `/students` | Lista todos os alunos | `200` |
+| `GET` | `/ranking?page&size` | Ranking paginado, por XP | `200`, `400` |
+| `GET` | `/ranking/top?n` | Os `n` primeiros colocados | `200`, `400` |
+| `GET` | `/ranking/students/{id}` | Posição de um aluno | `200`, `404` |
+| `GET` | `/conquistas/students/{id}` | Badges do aluno | `200`, `404` |
+| `GET` | `/recomendacoes/students/{id}` | Recomendações de cursos; `degraded: true` indica a lista de populares, usada quando o serviço de IA não responde | `200`, `404` |
+
+Serviço de IA, na porta 8000 ([`labs/desafio-3/ia-service`](labs/desafio-3/ia-service/)):
+
+| Método | Caminho | Descrição |
+|---|---|---|
+| `GET` | `/health` | Saúde do serviço |
+| `POST` | `/recomendacoes` | Recomendação por regra determinística |
+| `POST` | `/assistente` | Assistente com resposta simulada |
 
 XP inválido (`amount <= 0`) é ignorado silenciosamente pelo domínio (comportamento testado no
 BLUE) — a API não rejeita com `400`, apenas repassa o estado inalterado.
