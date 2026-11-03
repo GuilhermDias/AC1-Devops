@@ -20,6 +20,7 @@ import org.example.ac1devops.cursos.internal.persistence.OutboxEventRepository;
 import org.example.ac1devops.progression.api.ReceiveXpRequestDTO;
 import org.example.ac1devops.progression.api.StudentProgressionApi;
 import org.example.ac1devops.progression.api.StudentResponseDTO;
+import org.example.ac1devops.progression.api.StudentScoreChangedEvent;
 import org.example.ac1devops.progression.api.StudentScoreDTO;
 import org.example.ac1devops.progression.api.StudentUpdateConflictException;
 import org.springframework.context.ApplicationEventPublisher;
@@ -31,7 +32,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Implementacao de {@link CursosApi}. Conclusao, recompensa e evento sao gravados em uma unica
  * transacao, e toda a transacao e repetida quando ha disputa: na proxima tentativa, uma conclusao
- * gravada por outra requisicao e encontrada e devolvida, sem conceder XP de novo.
+ * gravada por outra requisicao e encontrada e devolvida, sem conceder XP de novo. O evento de pontuacao
+ * so sai depois da transacao, quando a conexao ja foi devolvida ao pool.
  */
 @Service
 public class CourseCompletionService implements CursosApi {
@@ -58,6 +60,14 @@ public class CourseCompletionService implements CursosApi {
     @Override
     public CourseCompletionDTO completeCourse(String courseId, Long studentId) {
         Course course = CourseCatalog.find(courseId).orElseThrow(() -> new CourseNotFoundException(courseId));
+        CourseCompletionDTO completion = completeWithRetry(course, studentId);
+        if (!completion.alreadyCompleted()) {
+            eventPublisher.publishEvent(new StudentScoreChangedEvent(studentId, completion.xpTotal()));
+        }
+        return completion;
+    }
+
+    private CourseCompletionDTO completeWithRetry(Course course, Long studentId) {
         for (int attempt = 1; ; attempt++) {
             try {
                 return transaction.execute(status -> complete(course, studentId));

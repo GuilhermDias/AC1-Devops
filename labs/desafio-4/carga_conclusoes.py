@@ -28,6 +28,8 @@ def call(method, path, body=None):
             return response.status, json.loads(response.read() or "null")
     except urllib.error.HTTPError as error:
         return error.code, None
+    except (TimeoutError, urllib.error.URLError):
+        return 0, None
 
 
 def complete(job):
@@ -50,7 +52,7 @@ for status, _ in results:
     statuses[status] = statuses.get(status, 0) + 1
 
 print(f"{len(jobs)} conclusoes em {elapsed:.1f} s ({len(jobs) / elapsed:.0f}/s), {THREADS} threads")
-print(f"status: {statuses}")
+print(f"status (0 = sem resposta em 60 s): {statuses}")
 print(f"resposta: mediana {statistics.median(times):.0f} ms, p95 {times[int(len(times) * 0.95)]:.0f} ms")
 
 if WAIT:

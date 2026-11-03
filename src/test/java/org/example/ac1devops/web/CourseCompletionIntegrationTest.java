@@ -103,7 +103,7 @@ class CourseCompletionIntegrationTest {
         assertThat(notifications.get(0).path("studentId").asLong()).isEqualTo(id);
     }
 
-    /** Os badges saem de um listener depois do commit: sem transacao propria, nao seriam gravados. */
+    /** Os badges saem de um listener que roda depois da transacao de conclusao. */
     @Test
     void deveConcederBadgesDepoisDoCommit() throws Exception {
         long id = createStudent();
@@ -266,6 +266,38 @@ class CourseCompletionIntegrationTest {
         JsonNode student = objectMapper.readTree(get("/students/" + id).body());
         assertThat(student.path("xpTotal").asInt()).isEqualTo(1000);
         assertThat(student.path("levelUpEvents").size()).isEqualTo(3);
+    }
+
+    /**
+     * Mais requisicoes simultaneas que conexoes no pool (10). Nenhuma pode pedir uma segunda conexao
+     * enquanto segura a primeira: com todas assim, ficariam esperando umas pelas outras.
+     */
+    @Test
+    void conclusoesAcimaDoPoolDeConexoesNaoTravamNemPerdemBadges() throws Exception {
+        List<Long> students = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            students.add(createStudent());
+        }
+
+        long start = System.nanoTime();
+        List<Integer> statuses;
+        try (ExecutorService pool = Executors.newFixedThreadPool(students.size())) {
+            List<Future<Integer>> futures = new ArrayList<>();
+            for (long student : students) {
+                futures.add(pool.submit(() -> complete("ci-cd", student).statusCode()));
+            }
+            statuses = new ArrayList<>();
+            for (Future<Integer> future : futures) {
+                statuses.add(future.get());
+            }
+        }
+        long elapsedMillis = Duration.ofNanos(System.nanoTime() - start).toMillis();
+
+        assertThat(statuses).containsOnly(201);
+        assertThat(elapsedMillis).isLessThan(15_000);
+        for (long student : students) {
+            assertThat(objectMapper.readTree(get("/conquistas/students/" + student).body()).size()).isEqualTo(2);
+        }
     }
 
     @Test

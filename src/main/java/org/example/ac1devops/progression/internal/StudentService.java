@@ -78,10 +78,7 @@ public class StudentService implements StudentProgressionApi {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public StudentResponseDTO grantXpInCurrentTransaction(Long id, ReceiveXpRequestDTO request) {
-        AppliedXp applied = applyXp(id, request);
-        eventPublisher.publishEvent(
-                new StudentScoreChangedEvent(applied.student().getId(), applied.student().getXpTotal()));
-        return toResponseDTO(applied.student());
+        return toResponseDTO(applyXp(id, request).student());
     }
 
     private AppliedXp applyXpWithRetry(Long id, ReceiveXpRequestDTO request) {
