@@ -56,7 +56,7 @@ A numeração é global, de ASR1 a ASR17.
 | ASR | Desafio de origem | RNF / FURPS+ | Decisão / ADR | Evidência | Status |
 |---|---|---|---|---|---|
 | **ASR1** — Evoluir funcionalidades com baixo acoplamento | Desafio 1 | Manutenibilidade / S | Monólito Modular, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); mini-lab (item 9.8) | **Atendido** |
-| **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4); [p95 em PostgreSQL, com 100.000 alunos](evidencias/d6-observabilidade.txt) (D6) | **Atendido** para top 100 (114 ms) e posição (79 ms), em medição local; página aleatória no limite (317 ms); várias réplicas sem teste |
+| **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4); [p95 em PostgreSQL, com 100.000 alunos](evidencias/d6-observabilidade.txt) (D6) | **Parcial:** Atendido para top 100 (114 ms) e posição (79 ms); página aleatória acima da meta (317 ms sob 10 threads) |
 | **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
 | **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
 | **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
@@ -70,7 +70,7 @@ A numeração é global, de ASR1 a ASR17.
 | **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições; [print do reenvio](evidencias/img/d5-02-reenvio-duplicado.png) | **Atendido** |
 | **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py); prints ([eventos](evidencias/img/d5-01-eventos-normais.png), [CI](evidencias/img/d5-05-ci-verde.png)) | **Atendido**; autenticação e TLS pendentes para uso real |
 | **ASR15** — Nenhum artefato sai sem passar pelos gates | Desafio 6 | Testabilidade e Confiabilidade / S, R | Esteira única com estágios por componente, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`Jenkinsfile`](../../Jenkinsfile); [build #2 no Jenkins](evidencias/img/d6-01-jenkins-verde.png): [189 testes, 0 falhas](evidencias/img/d6-02a-jenkins-testes.png), gate de 100%; [artefatos](evidencias/img/d6-02b-jenkins-artefatos.png) | **Atendido**; a interrupção por um gate com falha não foi provocada dentro do Jenkins |
-| **ASR16** — ASRs de execução observáveis em operação | Desafio 6 | Observabilidade e Desempenho / S, P | Métricas por ASR, Prometheus e Grafana, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`ObservabilityIntegrationTest`](../../src/test/java/org/example/ac1devops/web/ObservabilityIntegrationTest.java); [fluxo real](evidencias/d6-observabilidade.txt): fallback de 90,8% com alerta ativo; prints ([painel](evidencias/img/d6-04-grafana-painel.png), [fallback](evidencias/img/d6-05a-fallback.png), [alerta](evidencias/img/d6-05b-alerta.png)) | **Atendido** |
+| **ASR16** — ASRs de execução observáveis em operação | Desafio 6 | Observabilidade e Desempenho / S, P | Métricas por ASR, Prometheus e Grafana, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`ObservabilityIntegrationTest`](../../src/test/java/org/example/ac1devops/web/ObservabilityIntegrationTest.java); [fluxo real](evidencias/d6-observabilidade.txt). Após derrubar o serviço de IA, a taxa de fallback sobe de 0% para 100% (print d6-05a) e o alerta FallbackDaIaAlto dispara (d6-05b); na medição por script, com 20 respostas da IA e depois 112 de fallback, o Prometheus calculou 90,8% na janela de 1 minuto em que as duas fases ainda se misturavam (84,8% no total acumulado). Prints ([painel](evidencias/img/d6-04-grafana-painel.png), [fallback](evidencias/img/d6-05a-fallback.png), [alerta](evidencias/img/d6-05b-alerta.png)) | **Atendido** |
 | **ASR17** — Operação reproduzível a partir do repositório | Desafio 6 | Recuperabilidade / R | Configurações versionadas e compose próprio, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`observabilidade/`](../../observabilidade/); [fluxo real](evidencias/d6-observabilidade.txt): recriado do zero; [Prometheus](evidencias/img/d6-03-prometheus-alvos.png) | **Atendido** para a observabilidade; o job do Jenkins é criado manualmente |
 
 ---
@@ -93,7 +93,7 @@ crescendo mais que as demais funcionalidades.
 | **RF04 — Conceder XP e subir de nível** (US1, US2, US3) | **Existe.** | `POST /students/{id}/xp` → `StudentController.receiveXp` → `StudentService.receiveXp`; regra em `Student.receiveXp` + `Level.fromXp` (BRONZE 0, PRATA 100, OURO 300, DIAMANTE 700); um `LevelUpEvent` por faixa atravessada. DTO `ReceiveXpRequestDTO`. | Módulo `progression` (domínio em `progression.internal.domain`). |
 | **RF05 — Consultar perfil do aluno** (US4) | **Existe.** | `GET /students/{id}` → `StudentController.getStudent` → `StudentService.getStudent`; `404` via `StudentNotFoundException` + `ApiExceptionHandler`. DTOs `StudentResponseDTO`, `LevelUpEventDTO`. | Módulo `progression`. |
 | **RF06 — Listar alunos** | **Existe.** | `GET /students` → `StudentController.listStudents` → `StudentService.listStudents` (`findAll()` sem paginação, mantido por compatibilidade com o front-end). | Módulo `progression`. Para volume, o caminho é o `GET /ranking` paginado. |
-| **RF-EVO — Cursos e recompensas** | **Planejado.** Não existem no código. | — | Módulos irmãos (`cursos`, `recompensas`) no mesmo padrão `api/` + `internal/`. |
+| **RF-EVO — Cursos e recompensas** | **Planejado.** Não existem no código. → cursos implementados no Desafio 4, com catálogo fixo e recompensa em XP; moedas não foram implementadas. | — | Módulos irmãos (`cursos`, `recompensas`) no mesmo padrão `api/` + `internal/`. |
 
 Interfaces de apoio que já existem: front-end Vue 3 em `src/main/resources/static/index.html`
 (consome `/students`) e documentação OpenAPI (`OpenApiConfig`, `/swagger-ui.html`, `/v3/api-docs`).
@@ -103,10 +103,10 @@ Interfaces de apoio que já existem: front-end Vue 3 em `src/main/resources/stat
 | RNF | FURPS+ | Análise no contexto da AC1 | Meta mensurável | Situação hoje |
 |---|---|---|---|---|
 | **Manutenibilidade** | S (Supportability) | Com Ranking, Conquistas, Cursos e Recompensas entrando, uma organização só por camada técnica espalharia cada funcionalidade por todos os pacotes e permitiria qualquer import. | 0 violações das regras de `ModularArchitectureTest`; um novo módulo não exige alterar classes de `progression.internal`. | Existe: 8 regras ArchUnit verdes no `mvn verify`. |
-| **Desempenho** | P (Performance) | O risco é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1). Um Ranking ingênuo em cima disso degradaria. | Ranking (top 100 e posição do aluno) com **p95 ≤ 300 ms** e **base de 100.000 alunos**; `POST /students/{id}/xp` com p95 ≤ 200 ms. | Ranking com 100.000 alunos no H2 de teste: página 0 em **15 ms**, última página em **49 ms**, posição de um aluno em **52 ms** (item 9.4). É medição única, não p95: falta medir em PostgreSQL sob carga HTTP. |
+| **Desempenho** | P (Performance) | O risco é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1). Um Ranking ingênuo em cima disso degradaria. | Ranking (top 100 e posição do aluno) com **p95 ≤ 300 ms** e **base de 100.000 alunos**; `POST /students/{id}/xp` com p95 ≤ 200 ms. | Ranking com 100.000 alunos no H2 de teste: página 0 em **15 ms**, última página em **49 ms**, posição de um aluno em **52 ms** (item 9.4). É medição única, não p95: falta medir em PostgreSQL sob carga HTTP. → medido no Desafio 6. |
 | **Escalabilidade** | P (Performance: capacidade) | Ranking é *read-heavy* e cresce mais que o resto. Monólito *stateless* escala horizontalmente; o ranking pode vir de cache. | Atender 100.000 usuários escalando réplicas do Core sem mudar código; nenhuma sessão em memória. | Core *stateless* (sem sessão HTTP); 1 réplica no `docker-compose.yml`. O cache do top N é por instância: com várias réplicas, trocar por um cache compartilhado (ex.: Redis), sem mudar o código do módulo. |
 | **Testabilidade** | S (Supportability) | Domínio em POJO e regra de fronteira verificável por teste. | **Cobertura de 100%** de linhas e branches, exigência da AC2, com gate que quebra o build (`jacoco:check`). | Existe: 100% instruções/linhas/branches/métodos; gate de 100% no `pom.xml`, sem excluir classes. |
-| **Observabilidade** | S (Supportability: serviceability) | Sem métricas não há como saber se os gatilhos de extração do Ranking (item 5) foram atingidos — a decisão depende disso. | Latência p95, taxa de erro e throughput por endpoint expostos em formato Prometheus e visualizados no Grafana; alerta se p95 do ranking > 300 ms. | **Não existe:** sem Actuator, Micrometer, Prometheus ou Grafana no projeto. Ver item 9.6. |
+| **Observabilidade** | S (Supportability: serviceability) | Sem métricas não há como saber se os gatilhos de extração do Ranking (item 5) foram atingidos — a decisão depende disso. | Latência p95, taxa de erro e throughput por endpoint expostos em formato Prometheus e visualizados no Grafana; alerta se p95 do ranking > 300 ms. | **Não existe:** sem Actuator, Micrometer, Prometheus ou Grafana no projeto. Ver item 9.6. → implementado no Desafio 6. |
 | **Complexidade operacional** | + (restrição de implementação e operação) | Hoje: 1 jar, 1 imagem Docker, 1 PostgreSQL, 1 `docker-compose.yml`, 1 workflow de CI. Serviços separados trariam múltiplos pipelines, contratos versionados, rede e dados distribuídos. | Continuar com **1 artefato, 1 banco e 1 pipeline**; ambiente completo sobe com um único `docker compose up`. | Atendido. |
 
 ### 3. ASR
@@ -204,7 +204,7 @@ verde — exatamente o que a alternativa B garante.
 
 ### 8. C4
 
-Retrato do fim do Desafio 1: os elementos marcados **(planejado)** não existiam naquele momento. O C4 atualizado está na [Síntese final](#síntese-final-decisões-levadas-para-a-poc-da-af).
+Retrato do fim do Desafio 1: os elementos marcados **(planejado)** não existiam naquele momento: → conquistas implementadas no Desafio 2; Prometheus, Grafana e métricas no Desafio 6. O C4 atualizado está na [Síntese final](#síntese-final-decisões-levadas-para-a-poc-da-af).
 
 #### 8.1 Contexto (C4Context)
 
@@ -315,7 +315,7 @@ Executado em 2026-11-02, Windows 11, Java 21.0.12, sobre o commit desta branch.
 recebe `StudentScoreChangedEvent` em processo para invalidar o cache.
 
 **Não implementado ao fim do Desafio 1:** módulo `conquistas` (RF02, entregue no Desafio 2), cursos e recompensas (RF-EVO), observabilidade
-(item 9.6). O front-end Vue ainda consome só `/students`; o ranking é acessível pela API e pelo
+(item 9.6). → cursos implementados no Desafio 4 e observabilidade no Desafio 6. O front-end Vue ainda consome só `/students`; o ranking é acessível pela API e pelo
 Swagger.
 
 #### 9.3 Monólito Modular x Camadas
@@ -571,10 +571,10 @@ anterior no repositório).
 | RF | RNF | ASR | RPC | ADR | C4 | Evidência no código |
 |---|---|---|---|---|---|---|
 | RF01 Ranking (`/ranking`) | Desempenho, Escalabilidade, Observabilidade | ASR2 | RPC3 (banco único), RPC4 (legado) | ADR-001, Decisão itens 4–6 + gatilhos G1–G5 | Component: `RankingController` → `RankingApi` ← `RankingService` → `StudentProgressionApi`; Container: Prometheus/Grafana | [`RankingService`](../../src/main/java/org/example/ac1devops/ranking/internal/RankingService.java), [`StudentRepository`](../../src/main/java/org/example/ac1devops/progression/internal/persistence/StudentRepository.java), índice em [`StudentEntity`](../../src/main/java/org/example/ac1devops/progression/internal/persistence/StudentEntity.java), [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java), [`RankingCacheIntegrationTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingCacheIntegrationTest.java) |
-| RF02 Conquistas (planejado no Desafio 1; badges implementados no Desafio 2) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` (planejado) | `StudentScoreChangedEvent` (mecanismo de eventos já usado pelo ranking); `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
+| RF02 Conquistas (planejado no Desafio 1; badges implementados no Desafio 2) | Manutenibilidade | ASR1 | RPC1 (Spring) | ADR-001, Decisão item 4 | Component: módulo `conquistas` (planejado) → implementado no Desafio 2 | `StudentScoreChangedEvent` (mecanismo de eventos já usado pelo ranking); `LevelUpEvent` em `progression.internal.domain`; regra `dominioSemFramework` |
 | RF03–RF06 Progressão (`/students`, US1–US4) | Manutenibilidade, Testabilidade | ASR1, ASR3 | RPC2 (6 devs), RPC4 (legado) | ADR-001, Decisão itens 1–4 | Component: `StudentController` → `StudentProgressionApi` ← `StudentService` | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java), [`StudentServiceTest`](../../src/test/java/org/example/ac1devops/progression/internal/StudentServiceTest.java), [`StudentEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/StudentEndpointIntegrationTest.java) |
 | (todos) | Testabilidade (cobertura 100%) | ASR3 | RPC4 (cobertura herdada) | ADR-001, Consequências | Context/Container: GitHub Actions | `jacoco:check` no [`pom.xml`](../../pom.xml), [`ci.yml`](../../.github/workflows/ci.yml) |
-| (todos) | Observabilidade | ASR2 (meio de verificação) | RPC1 (Actuator/Micrometer da stack) | ADR-001, Decisão item 6 | Container: Prometheus, Grafana; Component: Métricas | Não implementado: item 9.6 |
+| (todos) | Observabilidade | ASR2 (meio de verificação) | RPC1 (Actuator/Micrometer da stack) | ADR-001, Decisão item 6 | Container: Prometheus, Grafana; Component: Métricas | Não implementado: item 9.6 → implementado no Desafio 6 |
 | (todos) | Complexidade operacional | Restrição | RPC2, RPC3 | ADR-001, Alternativas (C rejeitada) | Container: 1 Core, 1 banco | [`docker-compose.yml`](../../docker-compose.yml), um único [`ci.yml`](../../.github/workflows/ci.yml) |
 
 ---
@@ -1530,7 +1530,7 @@ dispositivo, Core ou broker fora do ar, sem acoplar o Core aos dispositivos e se
 | 4 | Fronteira do MQTT | `mvnw.cmd test -Dtest=ModularArchitectureTest` | Só `iot.internal.adapter.mqtt` conhece o Paho. |
 | 5 | Simulador | `cd labs\desafio-5\simulador`, `py -m pytest` | **9 testes verdes**, também em um job próprio no CI. |
 | 6 | Fluxo real | Roteiro abaixo | Tabela abaixo e [`d5-fluxo-real.txt`](evidencias/d5-fluxo-real.txt). |
-| 7 | Build completo | `mvnw.cmd -B clean verify` | **159 testes**, 0 falhas. Cobertura: linhas 666/668 (99,7%) e branches 82/82; faltam as 2 linhas do tratamento de erro ao desconectar do broker. |
+| 7 | Build completo | `mvnw.cmd -B clean verify` | **159 testes**, 0 falhas. Cobertura ao fim do Desafio 5: linhas 666/668 (99,7%) e branches 82/82. → 100% alcançado no Desafio 6. |
 
 #### Resultados do fluxo real
 
@@ -1664,7 +1664,7 @@ Este desafio não cria funcionalidade: atua sobre **todos os RFs**, na operaçã
 | **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida: build #2 no Jenkins com todos os estágios verdes, inclusive o gate de 100% |
 | **Deploy independente** | + (restrição de implantação) | Artefatos separados, verificados por componente | Atendida: jar e imagem separados; sem publicação automática |
 | **Recuperabilidade** | R (Reliability) | Ambiente de observação recriado com um comando | Atendida: compose com tudo versionado, recriado do zero no teste |
-| **Desempenho** | P (Performance) | p95 do ranking ≤ 300 ms, com 100.000 alunos | Top 100: 114 ms. Posição: 79 ms. Página aleatória: 317 ms sob 10 threads |
+| **Desempenho** | P (Performance) | p95 do ranking ≤ 300 ms, com 100.000 alunos | **Parcial:** Atendido para top 100 (114 ms) e posição (79 ms); página aleatória acima da meta (317 ms sob 10 threads) |
 
 ### 3. ASR
 
@@ -1689,7 +1689,7 @@ Restrição do ambiente: a porta 9090 é do Jenkins, então o Prometheus usa a *
 ### 5. Decisão do Tech Lead
 
 **Serviços independentes exigem pipelines independentes?** **Não necessariamente.** Eles exigem artefatos e verificações independentes. Com um repositório,
-6 pessoas, nenhuma publicação automática e uma esteira de cerca de 3 minutos, um pipeline com estágios por componente atende. Os gatilhos para separar estão
+6 pessoas, nenhuma publicação automática e uma esteira de cerca de 5 minutos no Jenkins, um pipeline com estágios por componente atende. Os gatilhos para separar estão
 no [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md).
 
 **O que deve bloquear o deploy?**
@@ -1708,8 +1708,8 @@ no [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md).
 
 | ASR | Métrica técnica | Como vira evidência arquitetural | Medido no teste |
 |---|---|---|---|
-| **ASR2** (D1) | `ranking_query_seconds` | p95 comparado à meta de 300 ms, com 100.000 alunos e carga; decide o gatilho G1 de extração | Top 100: 114 ms; posição: 79 ms |
-| **ASR6** (D3) | `ia_recommendations_total{outcome}` | Derrubar a IA: o fallback sobe, e `http_server_requests` permite conferir que não há 5xx nem mudança no fluxo essencial | 90,8% de fallback e alerta `FallbackDaIaAlto` ativo; as respostas com HTTP 200 foram verificadas no D3 |
+| **ASR2** (D1) | `ranking_query_seconds` | p95 comparado à meta de 300 ms, com 100.000 alunos e carga; decide o gatilho G1 de extração | **Parcial:** Atendido para top 100 (114 ms) e posição (79 ms); página aleatória acima da meta (317 ms sob 10 threads) |
+| **ASR6** (D3) | `ia_recommendations_total{outcome}` | Derrubar a IA: o fallback sobe, e `http_server_requests` permite conferir que não há 5xx nem mudança no fluxo essencial | Após derrubar o serviço de IA, a taxa de fallback sobe de 0% para 100% (print d6-05a) e o alerta FallbackDaIaAlto dispara (d6-05b); na medição por script, com 20 respostas da IA e depois 112 de fallback, o Prometheus calculou 90,8% na janela de 1 minuto em que as duas fases ainda se misturavam (84,8% no total acumulado). As respostas com HTTP 200 foram verificadas no D3 |
 | **ASR11** (D4) | `outbox_events{status}` | `PENDING` volta a 0 depois de o consumidor voltar; `DEAD` igual a 0 sem intervenção | 40 `DELIVERED`, 0 `PENDING`, 0 `DEAD` |
 | **ASR12, ASR13** (D5) | `iot_events_total{result}` | Reenvio gera `DUPLICATE`, sem novo efeito; só faz sentido com o XP conferido | 4 `ACCEPTED`, 1 `DUPLICATE`, 3 `INVALID` |
 | Defeito do D4 | `hikaricp_connections_pending` | Conexões aguardando sob carga indicam a volta do esgotamento do pool | 0 durante a carga |
@@ -1725,7 +1725,7 @@ O contador de badges (`conquistas_badges_awarded_total`) mostra a regra do D2 em
 | Critério | (A) Único sequencial | (B) Único com paralelos | (C) Um Jenkinsfile por componente | (D) Detecção de mudança por pasta |
 |---|---|---|---|---|
 | Configuração no Jenkins | 1 job | **1 job** | 3 jobs | 1 job, com regras por pasta |
-| Tempo | Maior | **Cerca de 3 min** | Menor por componente | Menor na maioria das mudanças |
+| Tempo | Maior | **Cerca de 5 min no Jenkins** | Menor por componente | Menor na maioria das mudanças |
 | Contrato entre Core e IA | Sempre verificado | **Sempre verificado** | Depende de coordenar os jobs | Pode ser pulado |
 | Publicação independente | Não | Não, mas com artefatos separados | **Sim** | Parcial |
 | Um único resultado para o commit | Sim | **Sim** | Não | Sim |
@@ -1801,17 +1801,17 @@ PostgreSQL 16 descartável, Core em jar, serviço de IA e Mosquitto reais, Prome
 |---|---|---|---|
 | Top 100 | 44 ms | **114 ms** | ≤ 300 ms |
 | Posição do aluno | 32 ms | **79 ms** | ≤ 300 ms |
-| Página aleatória, 20 alunos | 165 ms | **317 ms** | Fora da meta original; **no limite** sob 10 threads |
+| Página aleatória, 20 alunos | 165 ms | **317 ms** | ≤ 300 ms; **acima da meta** sob 10 threads |
 
 Numa primeira rodada, sem o top 100 na carga, o Prometheus e o cliente concordaram na ordem de grandeza: página com 323 ms e 316 ms; posição com 61 ms e 74 ms.
 
-A página aleatória fica lenta por causa do deslocamento (`OFFSET`) e da contagem total a cada consulta. Como o ranking é consultado principalmente no topo e pela posição do aluno, **não alterei a consulta**: se o gatilho G1 ocorrer em uso real, o caminho é paginação por cursor e cache da contagem.
+A meta do Desafio 1 cita top 100 e posição; a página entra aqui como parte do ranking, por isso a ASR2 fica **parcial**. Ela fica lenta por causa do deslocamento (`OFFSET`) e da contagem total a cada consulta. Como o ranking é consultado principalmente no topo e pela posição do aluno, **não alterei a consulta**: se o gatilho G1 ocorrer em uso real, o caminho é paginação por cursor e cache da contagem.
 
 **Condições provocadas:**
 
 | Condição | Resultado observado |
 |---|---|
-| Serviço de IA derrubado, com requisições contínuas | 20 respostas da IA e depois 112 de fallback; **taxa de 90,8%**; alerta `FallbackDaIaAlto` **ativo**. O status HTTP dessas chamadas não foi registrado aqui: o teste automatizado do D3 cobre esse ponto |
+| Serviço de IA derrubado, com requisições contínuas | Após derrubar o serviço de IA, a taxa de fallback sobe de 0% para 100% (print d6-05a) e o alerta FallbackDaIaAlto dispara (d6-05b); na medição por script, com 20 respostas da IA e depois 112 de fallback, o Prometheus calculou 90,8% na janela de 1 minuto em que as duas fases ainda se misturavam (84,8% no total acumulado). O status HTTP dessas chamadas não foi registrado aqui: o teste automatizado do D3 cobre esse ponto |
 | 40 conclusões, com o canal no ar | 40 `DELIVERED`, 0 `PENDING`, 0 `DEAD`; 25 badges |
 | Eventos IoT, com reenvio e inválidos | 4 `ACCEPTED`, 1 `DUPLICATE`, 3 `INVALID` |
 | Carga no ranking | 0 conexões aguardando no pool; 0 erros 5xx |
@@ -1828,7 +1828,7 @@ Execução do Bruno em 2026-11-03, no Jenkins 2.582 local e com o roteiro abaixo
 | Artefatos no Jenkins, print do build #1 | `Grupo10_ATDD-0.0.1-SNAPSHOT.jar`, 63,42 MiB, e `site/jacoco` | [`d6-02b`](evidencias/img/d6-02b-jenkins-artefatos.png) |
 | Prometheus | Alvo `core`: **1/1 UP** | [`d6-03`](evidencias/img/d6-03-prometheus-alvos.png) |
 | Painel no Grafana, antes da queda | Core no ar, 0 req/s de 5xx, e dados nos 10 painéis | [`d6-04`](evidencias/img/d6-04-grafana-painel.png) |
-| Queda do serviço de IA | Fallback de **0% para 100%** | [`d6-05a`](evidencias/img/d6-05a-fallback.png) |
+| Queda do serviço de IA | Após derrubar o serviço de IA, a taxa de fallback sobe de 0% para 100% (print d6-05a) e o alerta FallbackDaIaAlto dispara (d6-05b); na medição por script, com 20 respostas da IA e depois 112 de fallback, o Prometheus calculou 90,8% na janela de 1 minuto em que as duas fases ainda se misturavam (84,8% no total acumulado). | [`d6-05a`](evidencias/img/d6-05a-fallback.png) |
 | Alerta | `FallbackDaIaAlto` **FIRING**; os outros 4 inativos | [`d6-05b`](evidencias/img/d6-05b-alerta.png) |
 | GitHub Actions | Run #7: 3 jobs verdes | [`d6-06`](evidencias/img/d6-06-ci-verde.png) |
 
@@ -1944,7 +1944,7 @@ que o justificasse.
 
 | ADR | Entra na PoC? | Por quê | O que fica de fora |
 |---|---|---|---|
-| [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) Monólito Modular | **Sim, é a base** | Dá baixo acoplamento com 1 artefato principal, para 6 pessoas. O p95 medido não pede extração. | Extração do Ranking, até os gatilhos G1–G5 |
+| [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) Monólito Modular | **Sim, é a base** | Dá baixo acoplamento com 1 artefato principal, para 6 pessoas. Top 100 e posição ficaram dentro da meta. A página aleatória ficou acima dela, em uma medição local, sem caracterizar o gatilho G1, que exige carga real sustentada: não há motivo para extração. | Extração do Ranking, até os gatilhos G1–G5 |
 | [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) Ports & Adapters seletivo | **Sim** | Regra de gamificação muda muito e é testada em 0,3 s, sem infraestrutura. | Hexagonal em todo o Core |
 | [ADR-003](adr/ADR-003-servico-python-de-ia.md) Serviço Python de IA | **Sim, com regra simulada** | Prova a fronteira: IA fora do ar não afeta o fluxo essencial. | Modelo real, RAG/LLM e assistente no Core |
 | [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) Outbox transacional | **Sim** | Conclusão não depende do consumidor, e nenhum evento se perde, inclusive com queda do processo. | RabbitMQ e Kafka, até os gatilhos B1–B5 |
@@ -2086,7 +2086,7 @@ O nível Deployment está no [item 8 do Desafio 6](#desafio-6--cicd-e-observabil
 
 | Problema | Correção |
 |---|---|
-| ASR2 "parcial", sem p95 em PostgreSQL | Medida no D6: atendida para top 100 e posição, com o limite da página aleatória registrado |
+| ASR2 "parcial", sem p95 em PostgreSQL | Medida no D6. **Parcial:** Atendido para top 100 (114 ms) e posição (79 ms); página aleatória acima da meta (317 ms sob 10 threads) |
 | ADR-001 e D1 citavam a observabilidade como planejada | ADR-001 e item 9.6 do D1 passam a apontar para o D6, e o compose próprio foi registrado como mudança |
 | D3 dizia que Prometheus e Grafana seguiam planejados | Texto atualizado, apontando para o D6 |
 | ADR-004 e D4 diziam que `DEAD` não gerava alerta | Alerta adicionado no D6, ainda sem envio de notificação |
@@ -2107,10 +2107,12 @@ As evidências da AC1 (ciclo RED/GREEN/BLUE, Docker, front-end) ficam em [`evide
 
 ### Histórico do CI
 
-GitHub Actions, branch `feature/b1-architecture-lab`: 8 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`), #4 (`3c3cce2`), #5 (`49ab6b2`), #6 (`7b72aa1`)
-e #7 (`9552ea7`). Depois do print abaixo, o run #8 (`6b463f3`), já com o gate de 100%, também terminou com sucesso, conforme a API do GitHub.
+GitHub Actions, branch `feature/b1-architecture-lab`, até a revisão do PR #7: 10 runs, todos com sucesso, conforme a API do GitHub: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`),
+#4 (`3c3cce2`), #5 (`49ab6b2`), #6 (`7b72aa1`), #7 (`9552ea7`), #8 (`6b463f3`, já com o gate de 100%), #9 e #10 (`2be87a1`, push e Pull Request).
 
-![Lista com os 7 runs verdes da branch](evidencias/img/b1-ci-historico-final.png)
+![Os 7 primeiros runs verdes; o run #8 (6b463f3) rodou depois do print](evidencias/img/b1-ci-historico-final.png)
+
+*Os 7 primeiros runs verdes; o run #8 (6b463f3) rodou depois do print.*
 
 ## Equipe e links
 

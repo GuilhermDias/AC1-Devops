@@ -31,7 +31,7 @@ e a taxa de fallback da IA.
 | **A — Pipeline único sequencial** | Simples, mas mais lento e sem separar o que cada componente verifica. |
 | **B — Pipeline único com estágios paralelos por componente** | Um Jenkinsfile e um único resultado; os testes Python rodam em paralelo. Todo build verifica todos os componentes. |
 | **C — Um Jenkinsfile por componente** | Autonomia real de publicação, mas 3 jobs para configurar e manter, para 6 pessoas em um único repositório. |
-| **D — Pipeline único com detecção de mudança por pasta** | Economiza tempo, mas pode pular a verificação do contrato entre Core e serviço de IA. A esteira leva cerca de 3 minutos, então o ganho não compensa. |
+| **D — Pipeline único com detecção de mudança por pasta** | Economiza tempo, mas pode pular a verificação do contrato entre Core e serviço de IA. A esteira leva cerca de 5 minutos no Jenkins, então o ganho não compensa. |
 
 ## Decisão
 
