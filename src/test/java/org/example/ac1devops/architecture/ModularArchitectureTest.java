@@ -26,7 +26,7 @@ class ModularArchitectureTest {
     private static final String ROOT = "org.example.ac1devops";
 
     static final List<String> MODULES = List.of(
-            "progression", "ranking", "conquistas", "recomendacao", "cursos", "notificacoes");
+            "progression", "ranking", "conquistas", "recomendacao", "cursos", "notificacoes", "iot");
 
     private static String module(String name) {
         return ROOT + "." + name + "..";
@@ -93,6 +93,8 @@ class ModularArchitectureTest {
             .layer("CursosInternal").definedBy(internal("cursos"))
             .layer("NotificacoesApi").definedBy(api("notificacoes"))
             .layer("NotificacoesInternal").definedBy(internal("notificacoes"))
+            .layer("IotApi").definedBy(api("iot"))
+            .layer("IotInternal").definedBy(internal("iot"))
             .layer("Config").definedBy(ROOT + ".config..")
             .whereLayer("Web").mayNotBeAccessedByAnyLayer()
             .whereLayer("Config").mayNotBeAccessedByAnyLayer()
@@ -102,21 +104,25 @@ class ModularArchitectureTest {
             .whereLayer("RecomendacaoInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("CursosInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("NotificacoesInternal").mayNotBeAccessedByAnyLayer()
+            .whereLayer("IotInternal").mayNotBeAccessedByAnyLayer()
             .whereLayer("ProgressionApi").mayOnlyBeAccessedByLayers(
                     "Web", "ProgressionInternal", "RankingApi", "RankingInternal", "ConquistasInternal",
-                    "RecomendacaoInternal", "CursosApi", "CursosInternal", "NotificacoesInternal")
+                    "RecomendacaoInternal", "CursosApi", "CursosInternal", "NotificacoesInternal",
+                    "IotInternal")
             .whereLayer("RankingApi").mayOnlyBeAccessedByLayers("Web", "RankingInternal")
             .whereLayer("ConquistasApi").mayOnlyBeAccessedByLayers("Web", "ConquistasInternal")
             .whereLayer("RecomendacaoApi").mayOnlyBeAccessedByLayers("Web", "RecomendacaoInternal")
-            .whereLayer("CursosApi").mayOnlyBeAccessedByLayers("Web", "CursosInternal", "NotificacoesInternal")
-            .whereLayer("NotificacoesApi").mayOnlyBeAccessedByLayers("Web", "NotificacoesInternal");
+            .whereLayer("CursosApi").mayOnlyBeAccessedByLayers(
+                    "Web", "CursosInternal", "NotificacoesInternal", "IotInternal")
+            .whereLayer("NotificacoesApi").mayOnlyBeAccessedByLayers("Web", "NotificacoesInternal")
+            .whereLayer("IotApi").mayOnlyBeAccessedByLayers("Web", "IotInternal");
 
     @ArchTest
     static final ArchRule progressionNaoConheceOutrosModulos = noClasses()
             .that().resideInAPackage(module("progression"))
             .should().dependOnClassesThat().resideInAnyPackage(
                     module("ranking"), module("conquistas"), module("recomendacao"),
-                    module("cursos"), module("notificacoes"))
+                    module("cursos"), module("notificacoes"), module("iot"))
             .because("os outros modulos dependem de progression (pela api e por eventos), nunca o contrario");
 
     @ArchTest
@@ -130,7 +136,7 @@ class ModularArchitectureTest {
     /** Inversao de dependencia do ADR-002: os adapters conhecem a porta, nunca o contrario. */
     @ArchTest
     static void nadaDependeDosAdapters(JavaClasses classes) {
-        for (String name : List.of("conquistas", "recomendacao", "notificacoes")) {
+        for (String name : List.of("conquistas", "recomendacao", "notificacoes", "iot")) {
             noClasses()
                     .that().resideOutsideOfPackage(internal(name) + "adapter..")
                     .should().dependOnClassesThat().resideInAPackage(internal(name) + "adapter..")
@@ -152,6 +158,13 @@ class ModularArchitectureTest {
             .that().resideInAPackage(module("cursos"))
             .should().dependOnClassesThat().resideInAPackage(module("notificacoes"))
             .because("a conclusao do curso nao pode depender do consumidor do evento");
+
+    /** ADR-005: o Core nao conhece dispositivos nem o broker: so o modulo iot fala MQTT. */
+    @ArchTest
+    static final ArchRule soOAdapterDeIotConheceMqtt = noClasses()
+            .that().resideOutsideOfPackage(internal("iot") + "adapter.mqtt..")
+            .should().dependOnClassesThat().resideInAPackage("org.eclipse.paho..")
+            .because("trocar o protocolo dos dispositivos nao pode afetar o restante do Core");
 
     /** ADR-004: o consumidor so conhece o evento publicado, nao a outbox nem a transacao de conclusao. */
     @ArchTest

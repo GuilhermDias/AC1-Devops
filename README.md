@@ -48,6 +48,7 @@ docker compose up -d --build
 | pgAdmin | `http://localhost:5050` | `admin@admin.com` / `admin` |
 | Postgres | `localhost:5433` (banco `ac1devops_db`) | `postgres` / `postgres` |
 | Serviço de IA | `http://localhost:8000` (`/health`, `/docs`) | — |
+| Broker MQTT (Mosquitto) | `localhost:1883` | Sem autenticação: só para o laboratório |
 
 Para conectar no banco pelo pgAdmin, cadastre um servidor apontando para o host **`postgres`**
 (nome do serviço na rede do compose), porta `5432` — não `localhost`, que dentro do container
@@ -129,6 +130,7 @@ piso de cobertura JaCoCo) em todo push e Pull Request.
 | `GET` | `/cursos/eventos` | Estado da entrega dos eventos de conclusão mais recentes | `200` |
 | `POST` | `/cursos/eventos/{id}/reenvio` | Devolve para a fila um evento com tentativas esgotadas | `202`, `404` |
 | `GET` | `/notificacoes/students/{id}` | Notificações enviadas ao aluno | `200`, `404` |
+| `GET` | `/iot/eventos` | Eventos recebidos dos dispositivos e o resultado do processamento | `200` |
 | `GET` | `/recomendacoes/students/{id}` | Recomendações de cursos; `degraded: true` indica a lista de populares, usada quando o serviço de IA não responde | `200`, `404` |
 
 Serviço de IA, na porta 8000 ([`labs/desafio-3/ia-service`](labs/desafio-3/ia-service/)):

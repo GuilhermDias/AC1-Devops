@@ -67,6 +67,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       IA_SERVICE_URL: http://ia-service:8000
+      MQTT_URL: tcp://mosquitto:1883
     ports:
       - "8080:8080"
     networks:
@@ -85,7 +86,25 @@ services:
     networks:
       - app_net
 
+  # ---------------------------------------------------------------------------
+  # Broker MQTT dos dispositivos de laboratorio (ADR-005). A app nao tem depends_on dele
+  # de proposito: sem broker, o Core sobe e tenta conectar periodicamente.
+  # So em localhost: a configuracao do laboratorio nao tem autenticacao nem TLS.
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: ac1devops-mosquitto
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./labs/desafio-5/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    networks:
+      - app_net
+
 volumes:
+  mosquitto_data:
   postgres_data:
   pgadmin_data:
 

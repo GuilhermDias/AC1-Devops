@@ -61,6 +61,14 @@
             <version>2.4.0</version>
         </dependency>
 
+        <!-- Cliente MQTT do gateway de dispositivos (ADR-005). Direto, sem Spring Integration: e um unico
+             topico de entrada, com sessao persistente e QoS 1. -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>1.2.5</version>
+        </dependency>
+
         <!-- Banco de producao/execucao: Postgres em container (perfil 'postgres', o padrao). -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -89,6 +97,13 @@
             <groupId>org.wiremock</groupId>
             <artifactId>wiremock-standalone</artifactId>
             <version>3.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Mosquitto real nos testes: reentrega e sessao persistente nao existem sem broker. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>2.0.5</version>
             <scope>test</scope>
         </dependency>
         <!-- Regras de arquitetura (fronteiras do modulo progression e camadas) verificadas como
