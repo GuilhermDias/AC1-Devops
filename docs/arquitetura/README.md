@@ -59,11 +59,11 @@ A numeração é global: novos desafios continuam a partir da ASR12.
 | **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
 | **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
 | **ASR6** — Indisponibilidade da IA não bloqueia o Core | Desafio 3 | Tolerância a falhas e Desempenho / R, P | Timeout, circuit breaker e fallback, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`RecomendacaoEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/RecomendacaoEndpointIntegrationTest.java); [roteiro](evidencias/d3-roteiro.txt) e prints ([no ar](evidencias/img/d3-02-core-com-ia.png), [fora do ar](evidencias/img/d3-03-core-ia-fora.png), [fluxo essencial](evidencias/img/d3-04-fluxo-essencial.png)); [falhas simuladas](evidencias/d3-falhas-simuladas.txt) | **Atendido** |
-| **ASR7** — IA publicada e escalada sem o Core | Desafio 3 | Deploy independente e Escalabilidade / +, P | Serviço Python independente, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`Dockerfile`](../../labs/desafio-3/ia-service/Dockerfile); job `ia-service` no [`ci.yml`](../../.github/workflows/ci.yml) | **Parcial:** imagem própria demonstrada e serviço parado sem parar o Core ([print](evidencias/img/d3-03-core-ia-fora.png)); job `ia-service` verde no GitHub (run #3, commit `b1a3d3a`); **escala sem teste de carga** |
+| **ASR7** — IA publicada e escalada sem o Core | Desafio 3 | Deploy independente e Escalabilidade / +, P | Serviço Python independente, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`Dockerfile`](../../labs/desafio-3/ia-service/Dockerfile); job `ia-service` no [`ci.yml`](../../.github/workflows/ci.yml) | **Parcial:** imagem própria demonstrada e serviço parado sem parar o Core ([print](evidencias/img/d3-03-core-ia-fora.png)); job `ia-service` verde no GitHub ([run #4](evidencias/img/d3-06-ci-dois-jobs.png), [pytest](evidencias/img/d3-07-ci-pytest.png)); **escala sem teste de carga** |
 | **ASR8** — Contrato HTTP/JSON verificável pelos dois lados | Desafio 3 | Interoperabilidade / + | Contrato versionado, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`contract/`](../../labs/desafio-3/ia-service/contract/), usado por [`test_api.py`](../../labs/desafio-3/ia-service/tests/test_api.py) e [`IaRecommendationAdapterTest`](../../src/test/java/org/example/ac1devops/recomendacao/internal/adapter/http/IaRecommendationAdapterTest.java) | **Atendido** |
-| **ASR9** — Conclusão independente dos consumidores | Desafio 4 | Tolerância a falhas, Disponibilidade, Latência e Desacoplamento / R, P, S | Consumidor fora da transação, depois do commit, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [falhas simuladas](evidencias/d4-falhas-simuladas.txt); [PostgreSQL](evidencias/d4-postgres.txt) | **Atendido** |
-| **ASR10** — Conclusão e recompensa atômicas e exatamente uma vez | Desafio 4 | Consistência / R | Transação única, `@Version` e restrição única, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): 0 alunos com XP divergente | **Atendido** |
-| **ASR11** — Nenhum evento confirmado se perde | Desafio 4 | Recuperabilidade / R | Outbox transacional, novas tentativas e reenvio manual, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): queda forçada e 1.601 de 1.601 notificações | **Atendido** em uma réplica; várias réplicas sem teste |
+| **ASR9** — Conclusão independente dos consumidores | Desafio 4 | Tolerância a falhas, Disponibilidade, Latência e Desacoplamento / R, P, S | Consumidor fora da transação, depois do commit, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [falhas simuladas](evidencias/d4-falhas-simuladas.txt); [PostgreSQL](evidencias/d4-postgres.txt); prints ([conclusão com o canal fora](evidencias/img/d4-01-conclusao-canal-fora.png), [evento pendente](evidencias/img/d4-02-evento-pendente.png), [CI](evidencias/img/d4-06-ci-verde.png)) | **Atendido** |
+| **ASR10** — Conclusão e recompensa atômicas e exatamente uma vez | Desafio 4 | Consistência / R | Transação única, `@Version` e restrição única, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): 0 alunos com XP divergente; [repetição sem novo XP](evidencias/img/d4-04-recuperado.png) | **Atendido** |
+| **ASR11** — Nenhum evento confirmado se perde | Desafio 4 | Recuperabilidade / R | Outbox transacional, novas tentativas e reenvio manual, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): queda forçada e 1.601 de 1.601 notificações; prints ([queda](evidencias/img/d4-03-queda-processo.png), [recuperação](evidencias/img/d4-04-recuperado.png)) | **Atendido** em uma réplica; várias réplicas sem teste |
 
 ---
 
@@ -1004,8 +1004,14 @@ com 200, e a recomendação passa a `degraded: true` sem esperar pelo serviço p
 |---|---|
 | ![docker stop e recomendação com degraded true](evidencias/img/d3-03-core-ia-fora.png) | ![XP e ranking com HTTP 200](evidencias/img/d3-04-fluxo-essencial.png) |
 
-O teste do serviço lento (`d3-05`) era opcional e não foi repetido nessa execução. O run #3 do CI, no commit `b1a3d3a`,
-terminou com sucesso nos dois jobs, conforme a API do GitHub; os prints de CI (`d3-06` e `d3-07`) ainda não foram anexados.
+O teste do serviço lento (`d3-05`) era opcional e não foi repetido nessa execução.
+
+**CI no GitHub:** os dois jobs ficaram verdes nos runs #3 (`b1a3d3a`) e #4 (`3c3cce2`). O job do serviço de IA executou os
+12 testes pytest e o build da imagem, em 25 s, separado do job do Core.
+
+| Run #4 com os 2 jobs verdes | Etapa `Testes pytest` com 12 testes |
+|---|---|
+| ![Resumo do run #4 com os dois jobs verdes](evidencias/img/d3-06-ci-dois-jobs.png) | ![Log do pytest com 12 passed](evidencias/img/d3-07-ci-pytest.png) |
 
 #### Roteiro manual
 
@@ -1252,6 +1258,30 @@ Execução única em 2026-11-03, em um computador local, com banco, Core e carga
 | Recuperação do acumulado de 800 | Entregue cerca de 43 s depois de o Core subir |
 | Total ao final | 1.601 conclusões e 1.601 notificações; **0 notificações repetidas; 0 alunos com XP divergente** |
 
+#### Execução manual do roteiro
+
+Execução do Bruno em 2026-11-03, com os comandos do roteiro abaixo:
+
+| Passo | Valor observado | Print |
+|---|---|---|
+| Conclusão com o canal fora do ar | **HTTP 201 em 0,16 s**, 150 XP, nível Prata | [`d4-01`](evidencias/img/d4-01-conclusao-canal-fora.png) |
+| Estado depois de 6 s | **`PENDING` com 3 tentativas**, erro `Canal de notificacao indisponivel`, XP 150 gravado, notificações `[]` | [`d4-02`](evidencias/img/d4-02-evento-pendente.png) |
+| Queda forçada do Core | PID 24824 encerrado com `Stop-Process -Force` | [`d4-03`](evidencias/img/d4-03-queda-processo.png) |
+| Depois de reiniciar com o canal no ar | **`DELIVERED`**, com 5 tentativas no total, e notificação entregue, sem nova chamada | [`d4-04`](evidencias/img/d4-04-recuperado.png) |
+| Repetir a conclusão | **HTTP 200 em 0,12 s, `alreadyCompleted: true`**, XP continua 150 | [`d4-04`](evidencias/img/d4-04-recuperado.png) |
+
+A entrega ocorreu na 5ª tentativa, que é o limite padrão. Se o canal tivesse continuado fora do ar, o evento iria para `DEAD`
+e dependeria do reenvio manual, que foi verificado no item 9 e no [`d4-postgres.txt`](evidencias/d4-postgres.txt). O print
+opcional `d4-05` não foi tirado. O run #4 do CI ficou verde nos dois jobs ([`d4-06`](evidencias/img/d4-06-ci-verde.png)).
+
+| Conclusão com o canal fora do ar | Evento pendente |
+|---|---|
+| ![HTTP 201 com o canal fora do ar](evidencias/img/d4-01-conclusao-canal-fora.png) | ![Evento PENDING, XP gravado e nenhuma notificação](evidencias/img/d4-02-evento-pendente.png) |
+
+| Queda forçada do processo | Recuperação e repetição |
+|---|---|
+| ![Core encerrado à força](evidencias/img/d4-03-queda-processo.png) | ![Evento DELIVERED, notificação e repetição com HTTP 200](evidencias/img/d4-04-recuperado.png) |
+
 #### Defeito encontrado pela evidência
 
 A primeira versão passava em todos os testes, mas a carga em PostgreSQL **travou**: com 20 threads, as requisições ficaram mais
@@ -1415,6 +1445,9 @@ A preencher.
 ## Síntese final para a PoC da AF
 
 A consolidar ao fim do Desafio 6, a partir da matriz cumulativa de ASRs.
+
+**Histórico do CI da branch** (`feature/b1-architecture-lab`), conforme a API do GitHub em 2026-11-03: 4 runs, todos com
+sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`) e #4 (`3c3cce2`). O print `b1-ci-historico.png` ainda não foi anexado.
 
 ## Equipe e links
 
