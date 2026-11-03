@@ -1,0 +1,104 @@
+# Desafio 5: Mosquitto real, Core em jar, simulador em Python e PostgreSQL 16 do projeto, porta 5433, em 2026-11-03
+# Execucao unica. Todos os dados abaixo sao do aluno 2, criado para este teste.
+
+Aluno 2
+### modo normal
+publicado presenca: 0025b4c5-b1e0-46d8-a82a-198c40d0d867
+publicado inicio: 925963e7-6be5-4b39-951b-57ef384283bd
+publicado conclusao: 61bf3ffc-5860-48b7-9cbd-79ac018cc140
+confirmados pelo broker (QoS 1): 3
+type      status   duplicatesDiscarded rejectionReason
+----      ------   ------------------- ---------------
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+aluno: {"id":2,"name":"Aluno IoT","xpTotal":150,"level":"PRATA","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"}]}
+### modo reenvio
+envio 1 do evento 59339a57-df67-47a7-87f4-698eadb7dd2b
+envio 2 do evento 59339a57-df67-47a7-87f4-698eadb7dd2b
+confirmados pelo broker (QoS 1): 2
+type      status   duplicatesDiscarded rejectionReason
+----      ------   ------------------- ---------------
+CONCLUSAO ACCEPTED                   1
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+aluno: {"id":2,"name":"Aluno IoT","xpTotal":250,"level":"PRATA","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"}]}
+### modo offline do dispositivo
+online: publicado presenca 7a70624e-8dda-49a1-9c5d-abf48fab61c1
+conexao perdida
+offline: guardado inicio d42f3ee3-1be7-43d8-8fb3-8eb71063c57b
+offline: guardado conclusao 8ba2f7da-bbc8-46a0-a401-ce7f5f8b3c24
+reconectado
+confirmados pelo broker (QoS 1): 3
+type      status   duplicatesDiscarded rejectionReason
+----      ------   ------------------- ---------------
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+CONCLUSAO ACCEPTED                   1
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+aluno: {"id":2,"name":"Aluno IoT","xpTotal":450,"level":"OURO","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"},{"fromLevel":"PRATA","toLevel":"OURO"}]}
+### modo invalido
+publicado invalido: isto nao e json
+publicado invalido: {"eventId": "919bc093-c269-48e9-8ebc-a35e787f4603", "deviceI
+publicado invalido: {"eventId": "478220e3-027f-4005-8667-7d4500a16f33", "deviceI
+confirmados pelo broker (QoS 1): 3
+Evento IoT invalido descartado do topico labs/lab-a/devices/sensor-01/events: JSON invalido
+Evento IoT invalido descartado do topico labs/lab-a/devices/sensor-01/events: alunoId invalido: null
+Evento IoT invalido descartado do topico labs/lab-a/devices/sensor-01/events: deviceId outro-dispositivo diferente do topico sensor-01
+### status retained e LWT
+labs/lab-a/devices/sensor-01/status offline
+### Core fora do ar, dispositivo publica; Core volta
+publicado presenca: ff2a5564-03d6-4986-987e-0a048e9ac42a
+publicado inicio: 9c7911c6-d039-4d1a-92bd-23cb4ef18cef
+publicado conclusao: dd976177-8034-4333-a19b-144d5e8b3af5
+confirmados pelo broker (QoS 1): 3
+Core de volta em 16.3 s
+type      status   duplicatesDiscarded rejectionReason
+----      ------   ------------------- ---------------
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+CONCLUSAO ACCEPTED                   1
+CONCLUSAO ACCEPTED                   0
+INICIO    ACCEPTED                   0
+PRESENCA  ACCEPTED                   0
+aluno: {"id":2,"name":"Aluno IoT","xpTotal":600,"level":"OURO","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"},{"fromLevel":"PRATA","toLevel":"OURO"}]}
+notificacoes: 4
+### Broker reiniciado com Core fora: sessao em disco
+publicado presenca: f99df7c5-b1cb-42cb-b4ec-5ba2786d0434
+publicado inicio: 7eb66913-ade3-40c5-8fcf-f1c47c647213
+publicado conclusao: e8574d10-b441-4a50-9e54-47bca8cc38c5
+confirmados pelo broker (QoS 1): 3
+type      status
+----      ------
+CONCLUSAO ACCEPTED
+INICIO    ACCEPTED
+PRESENCA  ACCEPTED
+aluno: {"id":2,"name":"Aluno IoT","xpTotal":800,"level":"DIAMANTE","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"},{"fromLevel":"PRATA","toLevel":"OURO"},{"fromLevel":"OURO","toLevel":"DIAMANTE"}]}
+### Core sobe sem broker, recupera sozinho
+conclusao por HTTP sem broker: HTTP 201
+publicado presenca: 91f85884-a22e-466d-a9b8-78a23ffd4756
+publicado inicio: e7401e6e-343c-4e03-ad2d-a86e7a90b40d
+publicado conclusao: 9dc6557a-c273-49ff-b7c7-55687574eaf3
+confirmados pelo broker (QoS 1): 3
+type      status
+----      ------
+CONCLUSAO ACCEPTED
+INICIO    ACCEPTED
+PRESENCA  ACCEPTED
+Broker MQTT indisponivel em tcp://localhost:1883: nova tentativa em instantes
+Conectado ao broker MQTT em tcp://localhost:1883, topico labs/+/devices/+/events
+
+### Consulta final no banco
+aluno 2: 900 XP, nivel DIAMANTE, 7 conclusoes, 7 eventos da outbox DELIVERED
+iot_events: 16
+eventId repetido: 0
+conclusao repetida: 0
+xp divergente: 0

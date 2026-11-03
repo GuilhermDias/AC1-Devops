@@ -1,0 +1,16 @@
+# Desafio 3: falhas simuladas para provar que os testes detectam a quebra da decisao
+
+## 1. Fallback removido de RecommendationService (mudanca temporaria)
+# Comando: mvnw.cmd -B test -Dtest=RecommendationServiceTest,RecomendacaoEndpointIntegrationTest
+expected: 200
+ but was: 500
+[ERROR]   RecomendacaoEndpointIntegrationTest.deveDegradarQuandoOServicoCaiEManterOFluxoEssencial:75 
+[ERROR]   RecommendationServiceTest.deveDegradarParaOsPopularesQuandoAIaEstaIndisponivel:29->recommendWith:16->lambda$deveDegradarParaOsPopularesQuand
+[ERROR] Tests run: 5, Failures: 1, Errors: 1, Skipped: 0
+
+## 2. Classe temporaria em ranking.internal com um campo RecomendacaoApi
+# Comando: mvnw.cmd -B test -Dtest=ModularArchitectureTest
+Field <org.example.ac1devops.ranking.internal.ViolacaoTemporaria.recomendacao> has type <org.example.ac1devops.recomendacao.api.RecomendacaoApi> in (ViolacaoTemporaria.java:0)
+[ERROR]   ModularArchitectureTest.camadasRespeitadas Architecture Violation [Priority: MEDIUM] - Rule 'Layered architecture considering only dependencies in layers, consisting of
+[ERROR]   ModularArchitectureTest.fluxoEssencialNaoConheceRecomendacao Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside in any package ['org.example.ac1devops.ranking..', 'org.example.ac
+[ERROR] Tests run: 10, Failures: 2, Errors: 0, Skipped: 0

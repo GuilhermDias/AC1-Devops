@@ -1,0 +1,44 @@
+# Regras ligadas aos ASRs. Aparecem em /alerts; nao ha envio de notificacao no laboratorio.
+groups:
+  - name: asrs
+    rules:
+      - alert: RankingP95AcimaDaMeta
+        # ASR2 e gatilho G1 do ADR-001.
+        expr: histogram_quantile(0.95, sum by (le) (rate(ranking_query_seconds_bucket[1m]))) > 0.3
+        for: 1m
+        labels:
+          asr: ASR2
+        annotations:
+          summary: p95 do ranking acima de 300 ms
+
+      - alert: FallbackDaIaAlto
+        # ASR6: a resposta continua, mas o aluno esta sem recomendacao personalizada.
+        expr: sum(rate(ia_recommendations_total{outcome="fallback"}[1m])) / sum(rate(ia_recommendations_total[1m])) > 0.5
+        for: 30s
+        labels:
+          asr: ASR6
+        annotations:
+          summary: Mais da metade das recomendacoes em modo degradado
+
+      - alert: EventosComTentativasEsgotadas
+        # ASR11: evento DEAD depende de reenvio manual.
+        expr: outbox_events{status="DEAD"} > 0
+        labels:
+          asr: ASR11
+        annotations:
+          summary: Ha eventos da outbox aguardando reenvio manual
+
+      - alert: EventosPendentesAcumulados
+        # Gatilho B4/B5 do ADR-004: possivel falta de capacidade ou consumidor fora do ar.
+        expr: outbox_events{status="PENDING"} > 100
+        for: 5m
+        labels:
+          asr: ASR11
+        annotations:
+          summary: Mais de 100 eventos pendentes por 5 minutos
+
+      - alert: CoreForaDoAr
+        expr: up{job="core"} == 0
+        for: 30s
+        annotations:
+          summary: Prometheus nao consegue coletar as metricas do Core

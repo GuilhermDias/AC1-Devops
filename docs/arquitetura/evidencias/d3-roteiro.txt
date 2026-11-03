@@ -1,0 +1,53 @@
+# Desafio 3: roteiro executado em 2026-11-02 com a imagem real do servico e o Core em jar (perfil h2)
+# Tempos medidos com curl, sem carga, em execucao unica
+
+### 1. Saude do servico
+{"status":"ok","modelVersion":"regras-v1"}
+### 2. Cria aluno e da XP
+{"id":1,"name":"Aluno Roteiro","xpTotal":0,"level":"BRONZE","levelUpEvents":[]}
+{"id":1,"name":"Aluno Roteiro","xpTotal":150,"level":"PRATA","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"}]}
+### 3. Recomendacao com o servico no ar
+{"studentId":1,"courses":[{"courseId":"testes-unitarios","title":"Testes Unitarios","reason":"Indicado para o seu nivel"},{"courseId":"docker-essencial","title":"Docker Essencial","reason":"Indicado para o seu nivel"},{"courseId":"ci-cd","title":"Integracao e Entrega Continuas","reason":"Prepara para o proximo nivel"}],"degraded":false}
+HTTP 200 em 0.409029s
+HTTP 200 em 0.026224s degraded=False testes-unitarios
+HTTP 200 em 0.017453s degraded=False testes-unitarios
+HTTP 200 em 0.022150s degraded=False testes-unitarios
+HTTP 200 em 0.025480s degraded=False testes-unitarios
+### 4. Derruba o servico
+health: HTTP 000
+### 5. Recomendacao com o servico fora do ar
+{"studentId":1,"courses":[{"courseId":"fundamentos-git","title":"Fundamentos de Git","reason":"Entre os cursos mais populares"},{"courseId":"testes-unitarios","title":"Testes Unitarios","reason":"Entre os cursos mais populares"},{"courseId":"docker-essencial","title":"Docker Essencial","reason":"Entre os cursos mais populares"}],"degraded":true}
+HTTP 200 em 0.023107s
+HTTP 200 em 0.029832s degraded=True fundamentos-git
+HTTP 200 em 0.013121s degraded=True fundamentos-git
+HTTP 200 em 0.009452s degraded=True fundamentos-git
+HTTP 200 em 0.018017s degraded=True fundamentos-git
+HTTP 200 em 0.007909s degraded=True fundamentos-git
+HTTP 200 em 0.006801s degraded=True fundamentos-git
+HTTP 200 em 0.032375s degraded=True fundamentos-git
+HTTP 200 em 0.005396s degraded=True fundamentos-git
+HTTP 200 em 0.006452s degraded=True fundamentos-git
+### 6. Fluxo essencial com o servico fora do ar
+POST xp HTTP 200 em 0.014576s
+GET aluno HTTP 200 em 0.006430s
+GET ranking HTTP 200 em 0.046878s
+GET conquistas HTTP 200 em 0.013519s
+### 7. Servico lento (5 s): direto, sem protecao
+POST direto no servico: HTTP 200 em 5.025084s
+aguarda 31 s (circuito meio aberto)
+### 8. Pelo Core: timeout e depois circuito aberto
+HTTP 200 em 0.826296s degraded=True fundamentos-git
+HTTP 200 em 0.823332s degraded=True fundamentos-git
+HTTP 200 em 0.006717s degraded=True fundamentos-git
+HTTP 200 em 0.007434s degraded=True fundamentos-git
+HTTP 200 em 0.006721s degraded=True fundamentos-git
+HTTP 200 em 0.009739s degraded=True fundamentos-git
+HTTP 200 em 0.012526s degraded=True fundamentos-git
+HTTP 200 em 0.006657s degraded=True fundamentos-git
+### 9. Servico volta
+logo depois de voltar (circuito ainda aberto):
+HTTP 200 em 0.031740s degraded=True fundamentos-git
+aguarda 31 s
+HTTP 200 em 0.301447s degraded=False ci-cd
+HTTP 200 em 0.047284s degraded=False ci-cd
+HTTP 200 em 0.030541s degraded=False ci-cd

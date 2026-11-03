@@ -1,0 +1,59 @@
+# Desafio 2: 10 rodadas de 40 POST /students/{id}/xp (50 XP cada, 20 threads) no mesmo aluno
+# Ambiente: PostgreSQL 16 em container descartavel, app em jar, 2026-11-02
+# Script: labs/desafio-2/concorrencia_xp.py
+
+## Antes do Desafio 2 (commit d2c612c)
+rodada 0: xp=250/2000 level_ups=10
+rodada 1: xp=150/2000 level_ups=13
+rodada 2: xp=200/2000 level_ups=9
+rodada 3: xp=200/2000 level_ups=9
+rodada 4: xp=250/2000 level_ups=10
+rodada 5: xp=250/2000 level_ups=10
+rodada 6: xp=350/2000 level_ups=11
+rodada 7: xp=150/2000 level_ups=12
+rodada 8: xp=250/2000 level_ups=10
+rodada 9: xp=200/2000 level_ups=10
+status de 400 POST: {200: 400}
+
+## Primeira versao do modulo conquistas, sem a correcao (1 rodada)
+status de 40 POST: {200: 38, 500: 2}
+xpTotal final: 300, badges: 3, duplicados: 0
+Causa dos 500: org.hibernate.LazyInitializationException depois da violacao de uk_student_badges_student_code
+
+## Depois da correcao
+rodada 0: xp=200/2000 level_ups=6 badges=3 duplicados=0
+rodada 1: xp=150/2000 level_ups=12 badges=3 duplicados=0
+rodada 2: xp=150/2000 level_ups=9 badges=3 duplicados=0
+rodada 3: xp=200/2000 level_ups=11 badges=3 duplicados=0
+rodada 4: xp=250/2000 level_ups=13 badges=3 duplicados=0
+rodada 5: xp=250/2000 level_ups=10 badges=3 duplicados=0
+rodada 6: xp=250/2000 level_ups=10 badges=3 duplicados=0
+rodada 7: xp=350/2000 level_ups=11 badges=3 duplicados=0
+rodada 8: xp=150/2000 level_ups=9 badges=3 duplicados=0
+rodada 9: xp=200/2000 level_ups=12 badges=3 duplicados=0
+status de 400 POST: {200: 400}
+DataIntegrityViolationException no log: 36 (todas tratadas pelo listener, nenhuma chegou ao cliente)
+Pares (aluno, badge) duplicados no banco: 0
+
+## Leitura ate aqui
+A perda de XP e os level-ups repetidos ja existiam antes do Desafio 2: StudentService.receiveXp lia e
+gravava sem controle de concorrencia.
+
+## Depois do bloqueio otimista (@Version com nova tentativa limitada, commit ae663e3)
+rodada 0: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 1: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 2: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 3: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 4: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 5: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 6: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 7: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 8: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+rodada 9: xp=2000/2000 level_ups=3 badges=5 duplicados=0
+status de 400 POST: {200: 400}
+Pares repetidos no banco: level-ups 0, badges 0
+Violacoes da restricao unica de badges: 1 na primeira execucao e 0 na segunda, tratadas sem erro ao cliente
+
+## Banco existente
+Versao antiga criou um aluno com 150 XP. A versao nova subiu sobre o mesmo banco: coluna version adicionada
+(NOT NULL, default 0), aluno preservado, e mais 150 XP resultaram em 300 XP, nivel OURO.

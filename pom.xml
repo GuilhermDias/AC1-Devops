@@ -47,6 +47,37 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
+        <!-- Spring Cache: top N do ranking em cache, invalidado quando a pontuacao muda. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+
+        <!-- Circuit breaker do cliente do servico de IA: com o servico fora do ar, para de esperar
+             o timeout a cada chamada e o Core responde direto no modo degradado (ADR-003). -->
+        <dependency>
+            <groupId>io.github.resilience4j</groupId>
+            <artifactId>resilience4j-circuitbreaker</artifactId>
+            <version>2.4.0</version>
+        </dependency>
+
+        <!-- Cliente MQTT do gateway de dispositivos (ADR-005). Direto, sem Spring Integration: e um unico
+             topico de entrada, com sessao persistente e QoS 1. -->
+        <dependency>
+            <groupId>org.eclipse.paho</groupId>
+            <artifactId>org.eclipse.paho.client.mqttv3</artifactId>
+            <version>1.2.5</version>
+        </dependency>
+
+        <!-- Metricas em /actuator/prometheus: mostram em execucao se os ASRs continuam valendo (ADR-006). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
 
         <!-- Banco de producao/execucao: Postgres em container (perfil 'postgres', o padrao). -->
         <dependency>
@@ -70,6 +101,34 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-micrometer-metrics-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Servidor HTTP real nos testes do cliente do servico de IA: simula queda, lentidao e erro.
+             A versao standalone evita conflito de dependencias com o Spring Boot. -->
+        <dependency>
+            <groupId>org.wiremock</groupId>
+            <artifactId>wiremock-standalone</artifactId>
+            <version>3.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Mosquitto real nos testes: reentrega e sessao persistente nao existem sem broker. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <version>2.0.5</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Regras de arquitetura (fronteiras do modulo progression e camadas) verificadas como
+             teste: rodam no 'mvn verify' local e no CI, bloqueando violacoes no Pull Request. -->
+        <dependency>
+            <groupId>com.tngtech.archunit</groupId>
+            <artifactId>archunit-junit5</artifactId>
+            <version>1.4.1</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -82,14 +141,6 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
-                <configuration>
-                    <!-- Classe de bootstrap do Spring Boot (main()): não é código de domínio,
-                         testar main() diretamente não agrega valor. Prática padrão em projetos
-                         Spring para não poluir a métrica de cobertura com a classe de entrada. -->
-                    <excludes>
-                        <exclude>**/Ac1DevOpsApplication.class</exclude>
-                    </excludes>
-                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -103,6 +154,33 @@
                         <goals>
                             <goal>report</goal>
                         </goals>
+                    </execution>
+                    <!-- Exigencia da AC2, verificada no 'mvn verify' (local e CI): 100% de linhas e
+                         branches, sem excluir classes. Qualquer queda quebra o build. -->
+                    <execution>
+                        <id>check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>LINE</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>1.00</minimum>
+                                        </limit>
+                                        <limit>
+                                            <counter>BRANCH</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>1.00</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

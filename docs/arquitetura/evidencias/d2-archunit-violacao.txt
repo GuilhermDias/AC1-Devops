@@ -1,0 +1,13 @@
+# Desafio 2: prova de que o ArchUnit barra violacoes da fronteira do dominio de conquistas
+# Classe TEMPORARIA criada (e removida em seguida) em conquistas/internal/domain/ViolacaoTemporaria.java:
+#   @Component class ViolacaoTemporaria { private JpaAwardedBadgeAdapter adapter; }
+# Comando: mvnw.cmd -B test -Dtest=ModularArchitectureTest
+
+[ERROR] Tests run: 9, Failures: 3, Errors: 0, Skipped: 0, Time elapsed: 3.050 s <<< FAILURE! -- in org.example.ac1devops.architecture.ModularArchitectureTest
+Class <org.example.ac1devops.conquistas.internal.domain.ViolacaoTemporaria> is annotated with <org.springframework.stereotype.Component> in (ViolacaoTemporaria.java:0)
+Field <org.example.ac1devops.conquistas.internal.domain.ViolacaoTemporaria.adapter> has type <org.example.ac1devops.conquistas.internal.adapter.persistence.JpaAwardedBadgeAdapter> in (ViolacaoTemporaria.java:0)
+    - Field <org.example.ac1devops.conquistas.internal.domain.ViolacaoTemporaria.adapter> has type <org.example.ac1devops.conquistas.internal.adapter.persistence.JpaAwardedBadgeAdapter> in (ViolacaoTemporaria.java:0)
+[ERROR]   ModularArchitectureTest.dominioSemFrameworkNemAdapters Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside in a package 'org.example.ac1devops..internal.domain..' should depend on classes that reside in any package ['org.springframework..', 'jakarta.persistence..', 'org.hibernate..', 'org.example.ac1devops..persistence..', 'org.example.ac1devops..adapter..'], because
+[ERROR]   ModularArchitectureTest.nadaDependeDosAdaptersDeConquistas Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside outside of package 'org.example.ac1devops.conquistas.internal..adapter..' should depend on classes that reside in a package 'org.example.ac1devops.conquistas.internal..adapter..', because o acesso aos adapters e sempre pela porta, resolvida pelo Spring' was 
+[ERROR]   ModularArchitectureTest.semCiclosEntrePacotes Architecture Violation [Priority: MEDIUM] - Rule 'slices matching 'org.example.ac1devops.(**)' should be free of cycles' was violated (1 times):
+[ERROR] Tests run: 9, Failures: 3, Errors: 0, Skipped: 0

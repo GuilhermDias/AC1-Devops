@@ -1,0 +1,36 @@
+# Desafio 4: quebras temporarias da decisao, para provar que os testes detectam, em vez de travar
+# Comando de cada caso: mvnw.cmd -B test -Dtest=<teste indicado>
+
+## 1. Consumidor chamado de forma sincrona, dentro da transacao de conclusao
+# Teste: CourseCompletionIntegrationTest; resultado do build: exit=1
+[ERROR] org.example.ac1devops.web.CourseCompletionIntegrationTest.deveEsgotarAsTentativasESerRecuperadoPorReenvioManual -- Time elapsed: 10.11 s <<< E
+[ERROR] org.example.ac1devops.web.CourseCompletionIntegrationTest.consumidorForaDoArNaoImpedeAConclusaoEARecuperacaoEAutomatica -- Time elapsed: 0.091
+[ERROR] org.example.ac1devops.web.CourseCompletionIntegrationTest.consumidorLentoNaoAtrasaAResposta -- Time elapsed: 5.061 s <<< FAILURE!
+[ERROR]   CourseCompletionIntegrationTest.consumidorForaDoArNaoImpedeAConclusaoEARecuperacaoEAutomatica:125 
+[ERROR]   CourseCompletionIntegrationTest.consumidorLentoNaoAtrasaAResposta:177 
+[ERROR]   CourseCompletionIntegrationTest.deveEsgotarAsTentativasESerRecuperadoPorReenvioManual:146 » ConditionTimeout Condition with Lambda expressio
+[ERROR] Tests run: 15, Failures: 2, Errors: 1, Skipped: 0
+
+## 2. Varredura de recuperacao desligada
+# Teste: CourseCompletionIntegrationTest; resultado do build: exit=1
+[ERROR]   CourseCompletionIntegrationTest.consumidorForaDoArNaoImpedeAConclusaoEARecuperacaoEAutomatica:135 » ConditionTimeout Condition with Lambda e
+[ERROR]   CourseCompletionIntegrationTest.deveDrenarAcumuladoMaiorQueUmLoteDaVarredura:201 » ConditionTimeout Condition with Lambda expression in org.
+[ERROR]   CourseCompletionIntegrationTest.deveEntregarEventoPendenteDeixadoPorUmaQuedaDoProcesso:187 » ConditionTimeout Condition with Lambda expressi
+[ERROR]   CourseCompletionIntegrationTest.deveEsgotarAsTentativasESerRecuperadoPorReenvioManual:146 » ConditionTimeout Condition with Lambda expressio
+[ERROR] Tests run: 15, Failures: 0, Errors: 4, Skipped: 0
+
+## 3. Evento de pontuacao nao publicado depois da conclusao
+# Teste: CourseCompletionIntegrationTest; resultado do build: exit=1
+[ERROR] org.example.ac1devops.web.CourseCompletionIntegrationTest.conclusoesAcimaDoPoolDeConexoesNaoTravamNemPerdemBadges -- Time elapsed: 0.595 s <<<
+[ERROR] org.example.ac1devops.web.CourseCompletionIntegrationTest.deveConcederBadgesDepoisDoCommit -- Time elapsed: 0.068 s <<< FAILURE!
+[ERROR]   CourseCompletionIntegrationTest.conclusoesAcimaDoPoolDeConexoesNaoTravamNemPerdemBadges:299 
+[ERROR]   CourseCompletionIntegrationTest.deveConcederBadgesDepoisDoCommit:114 
+[ERROR] Tests run: 15, Failures: 2, Errors: 0, Skipped: 0
+
+## 4. Modulo cursos conhecendo notificacoes
+# Teste: ModularArchitectureTest; resultado do build: exit=1
+[ERROR] org.example.ac1devops.architecture.ModularArchitectureTest.camadasRespeitadas -- Time elapsed: 7.953 s <<< FAILURE!
+[ERROR] org.example.ac1devops.architecture.ModularArchitectureTest.cursosNaoConheceNotificacoes -- Time elapsed: 0.005 s <<< FAILURE!
+[ERROR]   ModularArchitectureTest.camadasRespeitadas Architecture Violation [Priority: MEDIUM] - Rule 'Layered architecture considering only dependenc
+[ERROR]   ModularArchitectureTest.cursosNaoConheceNotificacoes Architecture Violation [Priority: MEDIUM] - Rule 'no classes that reside in a package '
+[ERROR] Tests run: 12, Failures: 2, Errors: 0, Skipped: 0

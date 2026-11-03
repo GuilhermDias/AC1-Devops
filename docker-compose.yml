@@ -13,7 +13,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      # 5433 no host: a 5432 pode estar ocupada por um PostgreSQL local.
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     # A app so sobe depois que o banco responde de fato (nao basta o container existir).
@@ -65,12 +66,45 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ac1devops_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      IA_SERVICE_URL: http://ia-service:8000
+      MQTT_URL: tcp://mosquitto:1883
     ports:
       - "8080:8080"
     networks:
       - app_net
 
+  # ---------------------------------------------------------------------------
+  # Servico de IA (Python): imagem e ciclo de publicacao proprios (ADR-003). A app nao
+  # tem depends_on dele de proposito: sem IA, o Core sobe e responde no modo degradado.
+  # ---------------------------------------------------------------------------
+  ia-service:
+    build: labs/desafio-3/ia-service
+    container_name: ac1devops-ia-service
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - app_net
+
+  # ---------------------------------------------------------------------------
+  # Broker MQTT dos dispositivos de laboratorio (ADR-005). A app nao tem depends_on dele
+  # de proposito: sem broker, o Core sobe e tenta conectar periodicamente.
+  # So em localhost: a configuracao do laboratorio nao tem autenticacao nem TLS.
+  # ---------------------------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: ac1devops-mosquitto
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./labs/desafio-5/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    networks:
+      - app_net
+
 volumes:
+  mosquitto_data:
   postgres_data:
   pgadmin_data:
 
