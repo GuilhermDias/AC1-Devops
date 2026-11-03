@@ -1,5 +1,6 @@
 package org.example.ac1devops.conquistas.internal.adapter.event;
 
+import io.micrometer.core.instrument.Metrics;
 import org.example.ac1devops.conquistas.internal.domain.BadgeAwardService;
 import org.example.ac1devops.conquistas.internal.domain.StudentProgress;
 import org.example.ac1devops.progression.api.Level;
@@ -31,7 +32,7 @@ public class StudentScoreEventListener {
         StudentProgress progress = new StudentProgress(
                 event.studentId(), event.xpTotal(), Level.fromXp(event.xpTotal()));
         try {
-            badgeAwardService.evaluate(progress);
+            Metrics.counter("conquistas.badges.awarded").increment(badgeAwardService.evaluate(progress).size());
         } catch (RuntimeException exception) {
             log.warn("Falha ao avaliar conquistas do aluno {}", event.studentId(), exception);
         }

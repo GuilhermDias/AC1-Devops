@@ -7,6 +7,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -17,6 +19,7 @@ import org.example.ac1devops.iot.internal.domain.DeviceEvent;
 import org.example.ac1devops.iot.internal.domain.DeviceEventProcessor;
 import org.example.ac1devops.iot.internal.domain.EventType;
 import org.example.ac1devops.iot.internal.domain.ProcessingResult;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -38,6 +41,15 @@ class MqttDeviceEventGatewayTest {
 
     private MqttDeviceEventGateway gateway;
 
+    @BeforeAll
+    static void enableMetrics() {
+        Metrics.addRegistry(new SimpleMeterRegistry());
+    }
+
+    private static double eventCount(String result) {
+        return Metrics.counter("iot.events", "result", result).count();
+    }
+
     @BeforeEach
     void setUp() throws Exception {
         gateway = gatewayFor("tcp://localhost:1");
@@ -54,10 +66,12 @@ class MqttDeviceEventGatewayTest {
 
     @Test
     void deveTransformarAMensagemEEntregarAoDominio() {
-        when(processor.process(any())).thenReturn(ProcessingResult.ACCEPTED);
+        when(processor.process(any())).thenReturn(ProcessingResult.DUPLICATE);
+        double before = eventCount("DUPLICATE");
 
         gateway.messageArrived(TOPIC, message(VALID));
 
+        assertThat(eventCount("DUPLICATE")).isEqualTo(before + 1);
         verify(processor).process(new DeviceEvent(
                 "e1", "sensor-01", EventType.CONCLUSAO, 7L, "ci-cd", Instant.parse("2026-11-03T12:00:00Z")));
     }
@@ -70,8 +84,11 @@ class MqttDeviceEventGatewayTest {
         "{\"eventId\":\"e1\",\"deviceId\":\"sensor-01\",\"tipo\":\"conclusao\",\"alunoId\":\"abc\"}"
     })
     void deveDescartarMensagemInvalidaSemLancarExcecao(String body) {
+        double before = eventCount("INVALID");
+
         gateway.messageArrived(TOPIC, message(body));
 
+        assertThat(eventCount("INVALID")).isEqualTo(before + 1);
         verify(processor, never()).process(any());
     }
 

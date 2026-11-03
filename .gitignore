@@ -36,3 +36,4 @@ build/
 __pycache__/
 .pytest_cache/
 .venv/
+pytest-report.xml

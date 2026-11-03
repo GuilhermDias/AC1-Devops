@@ -129,9 +129,9 @@ class ModularArchitectureTest {
     static final ArchRule dominioSemFrameworkNemAdapters = noClasses()
             .that().resideInAPackage(ROOT + "..internal.domain..")
             .should().dependOnClassesThat().resideInAnyPackage(
-                    "org.springframework..", "jakarta.persistence..", "org.hibernate..",
+                    "org.springframework..", "jakarta.persistence..", "org.hibernate..", "io.micrometer..",
                     ROOT + "..persistence..", ROOT + "..adapter..")
-            .because("as regras de negocio sao POJOs puros, independentes de Spring, de JPA e dos adapters");
+            .because("as regras de negocio sao POJOs puros, independentes de Spring, de JPA, de metricas e dos adapters");
 
     /** Inversao de dependencia do ADR-002: os adapters conhecem a porta, nunca o contrario. */
     @ArchTest

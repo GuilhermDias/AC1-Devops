@@ -13,6 +13,16 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, 
 
     List<OutboxEventEntity> findTop100ByOrderByIdDesc();
 
+    @Query("select e.status as status, count(e) as total from OutboxEventEntity e group by e.status")
+    List<StatusCount> countByStatus();
+
+    interface StatusCount {
+
+        OutboxStatus getStatus();
+
+        long getTotal();
+    }
+
     @Query("select e.id from OutboxEventEntity e "
             + "where e.status = org.example.ac1devops.cursos.internal.persistence.OutboxStatus.PENDING "
             + "and e.nextAttemptAt <= :now order by e.id")

@@ -1,5 +1,7 @@
 package org.example.ac1devops.ranking.internal;
 
+import io.micrometer.core.instrument.Metrics;
+import io.micrometer.core.instrument.Timer;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.example.ac1devops.progression.api.StudentProgressionApi;
@@ -21,6 +23,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class RankingService implements RankingApi {
 
+    private static final Timer PAGE_TIMER = queryTimer("page");
+    private static final Timer TOP_TIMER = queryTimer("top");
+    private static final Timer POSITION_TIMER = queryTimer("position");
+
     private final StudentProgressionApi studentProgression;
 
     public RankingService(StudentProgressionApi studentProgression) {
@@ -33,22 +39,34 @@ public class RankingService implements RankingApi {
             throw new InvalidRankingQueryException("page deve ser >= 0");
         }
         requireSize("size", size);
-        Page<StudentScoreDTO> scores = studentProgression.listByScore(PageRequest.of(page, size));
-        return new RankingPageDTO(toEntries(scores), page, size,
-                scores.getTotalElements(), scores.getTotalPages());
+        return PAGE_TIMER.record(() -> {
+            Page<StudentScoreDTO> scores = studentProgression.listByScore(PageRequest.of(page, size));
+            return new RankingPageDTO(toEntries(scores), page, size,
+                    scores.getTotalElements(), scores.getTotalPages());
+        });
     }
 
     @Override
     @Cacheable(cacheNames = RankingCacheConfig.TOP_CACHE, key = "#n")
     public List<RankingEntryDTO> getTop(int n) {
         requireSize("n", n);
-        return toEntries(studentProgression.listByScore(PageRequest.of(0, n)));
+        return TOP_TIMER.record(() -> toEntries(studentProgression.listByScore(PageRequest.of(0, n))));
     }
 
     @Override
     public RankingEntryDTO getPosition(Long studentId) {
-        StudentScoreDTO score = studentProgression.getScore(studentId);
-        return toEntry(studentProgression.countStudentsAhead(score) + 1, score);
+        return POSITION_TIMER.record(() -> {
+            StudentScoreDTO score = studentProgression.getScore(studentId);
+            return toEntry(studentProgression.countStudentsAhead(score) + 1, score);
+        });
+    }
+
+    /** {@code ranking_query_seconds}: valida o p95 da ASR2. O top em cache so conta quando vai ao banco. */
+    private static Timer queryTimer(String operation) {
+        return Timer.builder("ranking.query")
+                .tag("operation", operation)
+                .publishPercentileHistogram()
+                .register(Metrics.globalRegistry);
     }
 
     private static void requireSize(String name, int value) {

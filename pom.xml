@@ -69,6 +69,16 @@
             <version>1.2.5</version>
         </dependency>
 
+        <!-- Metricas em /actuator/prometheus: mostram em execucao se os ASRs continuam valendo (ADR-006). -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- Banco de producao/execucao: Postgres em container (perfil 'postgres', o padrao). -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -89,6 +99,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-micrometer-metrics-test</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- Servidor HTTP real nos testes do cliente do servico de IA: simula queda, lentidao e erro.

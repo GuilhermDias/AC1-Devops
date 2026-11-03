@@ -1,5 +1,6 @@
 package org.example.ac1devops.recomendacao.internal;
 
+import io.micrometer.core.instrument.Metrics;
 import org.example.ac1devops.progression.api.StudentProgressionApi;
 import org.example.ac1devops.progression.api.StudentScoreDTO;
 import org.example.ac1devops.recomendacao.api.CourseDTO;
@@ -27,6 +28,8 @@ public class RecomendacaoService implements RecomendacaoApi {
         StudentScoreDTO student = studentProgression.getScore(studentId);
         Recommendations recommendations = recommendationService.recommend(
                 new StudentProfile(student.id(), student.level()));
+        // ia_recommendations_total{outcome}: a taxa de fallback valida a ASR6.
+        Metrics.counter("ia.recommendations", "outcome", recommendations.degraded() ? "fallback" : "ia").increment();
         return new RecommendationsDTO(
                 student.id(),
                 recommendations.courses().stream()

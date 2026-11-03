@@ -1,5 +1,6 @@
 package org.example.ac1devops.iot.internal.adapter.mqtt;
 
+import io.micrometer.core.instrument.Metrics;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -104,10 +105,17 @@ public class MqttDeviceEventGateway implements MqttCallback, SmartLifecycle {
             event = DeviceEventParser.parse(topic, message.getPayload());
         } catch (InvalidDeviceEventException invalid) {
             log.warn("Evento IoT invalido descartado do topico {}: {}", topic, invalid.getMessage());
+            countEvent("INVALID");
             return;
         }
         ProcessingResult result = processor.process(event);
         log.info("Evento IoT {} de {} ({}): {}", event.eventId(), event.deviceId(), event.type(), result);
+        countEvent(result.name());
+    }
+
+    /** {@code iot_events_total{result}}: aceitos, duplicados, rejeitados e invalidos (ASR12 e ASR13). */
+    private static void countEvent(String result) {
+        Metrics.counter("iot.events", "result", result).increment();
     }
 
     @Override
