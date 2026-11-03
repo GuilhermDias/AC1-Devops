@@ -1,0 +1,56 @@
+# Desafio 4: PostgreSQL 16 na porta 5433, Core em jar, 2026-11-03, execucao unica no mesmo computador
+# Commit e58fbdc. Queda simulada com Stop-Process -Force. Carga: labs/desafio-4/carga_conclusoes.py
+
+### 1. Canal fora do ar
+aluno 1
+{"completionId":1,"studentId":1,"courseId":"ci-cd","xpAwarded":150,"xpTotal":150,"level":"PRATA","alreadyCompleted":false}
+HTTP 201 em 0.128799s
+{"completionId":2,"studentId":1,"courseId":"docker-essencial","xpAwarded":100,"xpTotal":250,"level":"PRATA","alreadyCompleted":false}
+HTTP 201 em 0.065163s
+evento: status=PENDING tentativas=1 erro=Canal de notificacao indisponivel
+notificacoes: []
+aluno: {"id":1,"name":"Aluno Roteiro","xpTotal":250,"level":"PRATA","levelUpEvents":[{"fromLevel":"BRONZE","toLevel":"PRATA"}]}
+### 2. Queda do processo (Stop-Process -Force) e volta com o canal no ar
+core de volta em 15.8 s
+notificacoes entregues em 16 s desde o inicio do processo
+evento: status=DELIVERED tentativas=2 erro=
+[{"id":1,"eventId":1,"studentId":1,"message":"Parabens! Voce concluiu o curso ci-cd e ganhou 150 XP.","sentAt":"2026-11-03T02:59:04.031740Z"},{"id":2,"eventId":2,"studentId":1,"message":"Parabens! Voce concluiu o curso docker-essencial e ganhou 100 XP.","sentAt":"2026-11-03T02:59:04.120788Z"}]
+### 3. Repete a conclusao
+{"completionId":1,"studentId":1,"courseId":"ci-cd","xpAwarded":150,"xpTotal":250,"level":"PRATA","alreadyCompleted":true}
+HTTP 200 em 0.042629s
+### 4. Tentativas esgotadas e reenvio manual
+conclusao: HTTP 201 em 0.225016s
+evento: status=DEAD tentativas=2 erro=Canal de notificacao indisponivel
+depois de reiniciar, sem reenvio:
+evento: status=DEAD tentativas=2 erro=Canal de notificacao indisponivel
+reenvio: HTTP 202
+evento: status=DELIVERED tentativas=1 erro=
+notificacoes: [{"id":1,"eventId":1,"studentId":1,"message":"Parabens! Voce concluiu o curso ci-cd e ganhou 150 XP.","sentAt":"2026-11-03T03:00:18.733474Z"}]
+### 5. Carga com o canal no ar
+800 conclusoes em 17.6 s (45/s), 20 threads
+status (0 = sem resposta em 60 s): {201: 800}
+resposta: mediana 393 ms, p95 784 ms
+notificacoes: 800 de 800, 24.8 s depois do inicio
+### 6. Carga com o canal fora do ar
+800 conclusoes em 20.2 s (40/s), 20 threads
+status (0 = sem resposta em 60 s): {201: 800}
+resposta: mediana 443 ms, p95 920 ms
+### 7. Recuperacao do acumulado com o canal de volta
+antes:
+ PENDING   |   800
+ DELIVERED |   801
+
+core de volta em 19.7 s
+acumulado entregue 63.2 s depois do inicio do processo
+depois:
+ DELIVERED |  1601
+
+ conclusoes             |  1601
+ notificacoes           |  1601
+ notificacoes repetidas |     0
+ xp errado              |     0
+
+
+## Antes da correcao do pool de conexoes (commit 93988ab), mesma carga
+Requisicoes sem resposta em 60 s; 44 conclusoes gravadas
+Log: HikariPool-1 - Connection is not available, request timed out after 30007ms (total=10, active=10), 74 vezes

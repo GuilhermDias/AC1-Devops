@@ -49,7 +49,7 @@ ficam em [`evidencias/img/`](evidencias/img/), com o prefixo do desafio (`d1-`, 
 
 ## Matriz cumulativa de ASRs
 
-A numeração é global: novos desafios continuam a partir da ASR9.
+A numeração é global: novos desafios continuam a partir da ASR12.
 
 | ASR | Desafio de origem | RNF / FURPS+ | Decisão / ADR | Evidência | Status |
 |---|---|---|---|---|---|
@@ -61,6 +61,9 @@ A numeração é global: novos desafios continuam a partir da ASR9.
 | **ASR6** — Indisponibilidade da IA não bloqueia o Core | Desafio 3 | Tolerância a falhas e Desempenho / R, P | Timeout, circuit breaker e fallback, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`RecomendacaoEndpointIntegrationTest`](../../src/test/java/org/example/ac1devops/web/RecomendacaoEndpointIntegrationTest.java); [roteiro](evidencias/d3-roteiro.txt) e prints ([no ar](evidencias/img/d3-02-core-com-ia.png), [fora do ar](evidencias/img/d3-03-core-ia-fora.png), [fluxo essencial](evidencias/img/d3-04-fluxo-essencial.png)); [falhas simuladas](evidencias/d3-falhas-simuladas.txt) | **Atendido** |
 | **ASR7** — IA publicada e escalada sem o Core | Desafio 3 | Deploy independente e Escalabilidade / +, P | Serviço Python independente, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`Dockerfile`](../../labs/desafio-3/ia-service/Dockerfile); job `ia-service` no [`ci.yml`](../../.github/workflows/ci.yml) | **Parcial:** imagem própria demonstrada e serviço parado sem parar o Core ([print](evidencias/img/d3-03-core-ia-fora.png)); escala sem teste de carga; job `ia-service` ainda sem run no GitHub, pois a branch não foi publicada |
 | **ASR8** — Contrato HTTP/JSON verificável pelos dois lados | Desafio 3 | Interoperabilidade / + | Contrato versionado, [ADR-003](adr/ADR-003-servico-python-de-ia.md) | [`contract/`](../../labs/desafio-3/ia-service/contract/), usado por [`test_api.py`](../../labs/desafio-3/ia-service/tests/test_api.py) e [`IaRecommendationAdapterTest`](../../src/test/java/org/example/ac1devops/recomendacao/internal/adapter/http/IaRecommendationAdapterTest.java) | **Atendido** |
+| **ASR9** — Conclusão independente dos consumidores | Desafio 4 | Tolerância a falhas, Disponibilidade, Latência e Desacoplamento / R, P, S | Consumidor fora da transação, depois do commit, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [falhas simuladas](evidencias/d4-falhas-simuladas.txt); [PostgreSQL](evidencias/d4-postgres.txt) | **Atendido** |
+| **ASR10** — Conclusão e recompensa atômicas e exatamente uma vez | Desafio 4 | Consistência / R | Transação única, `@Version` e restrição única, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): 0 alunos com XP divergente | **Atendido** |
+| **ASR11** — Nenhum evento confirmado se perde | Desafio 4 | Recuperabilidade / R | Outbox transacional, novas tentativas e reenvio manual, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): queda forçada e 1.601 de 1.601 notificações | **Atendido** em uma réplica; várias réplicas sem teste |
 
 ---
 
@@ -1053,45 +1056,275 @@ docker stop ia-service
 
 ---
 
-## Desafio 4
+## Desafio 4 — Comunicação e eventos
 
-> **Status:** aguardando enunciado.
+O que precisa ser imediato e o que pode ser eventual, se ao concluir um curso o sistema registra a conclusão, calcula
+recompensas, atualiza informações e pode disparar notificação e analytics, e a falha de uma notificação não pode impedir a
+conclusão.
 
 ### 1. RF
 
-A preencher.
+> **Numeração:** RF02 é o mesmo do Desafio 2. RF05 segue o enunciado deste desafio; não confundir com o RF05 do Desafio 1
+> (consultar perfil).
+
+| RF | Estado | Classes / endpoints reais | Efeito deste desafio |
+|---|---|---|---|
+| **Eventos de conclusão de atividades** | **Existe.** | `POST /cursos/{courseId}/alunos/{studentId}/conclusao` → `CursosController` → `CursosApi` → `CourseCompletionService`; `GET /cursos/eventos`; `POST /cursos/eventos/{id}/reenvio` | Módulo novo `cursos`, com outbox. |
+| **RF05 — Notificações** | **Existe, com canal simulado.** | `CursoConcluidoEvent` → `NotificacaoService` → `NotificationChannel` ← `SimulatedNotificationChannel`; `GET /notificacoes/students/{id}` | Módulo novo `notificacoes`. |
+| **RF02 — Conquistas** | **Existe.** | Badges concedidos a partir do XP da conclusão | Reage ao evento de pontuação depois da transação. |
+
+Analytics é citado no cenário, mas **não foi implementado**: seria um segundo consumidor, o que é um dos gatilhos para adotar
+um broker (item 5). O catálogo de cursos e as recompensas são **propostas da equipe**, porque o Core não tinha cursos.
 
 ### 2. RNF (FURPS+)
 
-A preencher.
+| RNF | FURPS+ | Meta mensurável | Resultado |
+|---|---|---|---|
+| **Tolerância a falhas** | R (Reliability) | Canal fora do ar: conclusão responde 201 | Atendida: 800 de 800 com 201, em PostgreSQL |
+| **Disponibilidade** | R (Reliability) | Conclusão não depende do consumidor | Atendida: nenhuma chamada ao canal na requisição, verificado por teste e ArchUnit |
+| **Latência** | P (Performance) | Consumidor lento não atrasa a resposta | Atendida: teste com consumidor preso responde em menos de 1,5 s; sob carga, p95 de 784 ms com o canal no ar e de 920 ms fora do ar |
+| **Consistência** | R (Reliability) | Conclusão, XP e evento juntos, ou nada | Atendida: falha ao gravar o evento desfaz tudo; 0 alunos com XP divergente |
+| **Desacoplamento** | S (Supportability) | Quem conclui não conhece o consumidor | Atendida: regra do ArchUnit |
+| **Recuperabilidade** | R (Reliability) | Nenhum evento confirmado se perde, mesmo com queda do processo | Atendida: 1.601 notificações para 1.601 conclusões, sem repetição |
 
 ### 3. ASR
 
-A preencher.
+| ASR | RNF de origem | Como altera a arquitetura (uma frase) |
+|---|---|---|
+| **ASR9 — Conclusão independente dos consumidores** | Tolerância a falhas, Disponibilidade, Latência e Desacoplamento | Altera a **comunicação**: a conclusão responde sozinha, e o consumidor recebe o evento em outra thread, depois do commit. |
+| **ASR10 — Conclusão e recompensa atômicas e exatamente uma vez** | Consistência | Altera os **dados**: uma única transação, com bloqueio otimista e restrição única por aluno e curso. |
+| **ASR11 — Nenhum evento confirmado se perde** | Recuperabilidade | Altera os **dados e a operação**: o evento é gravado na transação, e a operação ganha novas tentativas, estado de falha e reenvio manual. |
 
 ### 4. RPC
 
-A preencher.
+| RPC | Restrição | Impacto na decisão |
+|---|---|---|
+| **RPC9** | Operações essenciais do Core devem concluir mesmo com consumidor externo indisponível. | Nenhum consumidor pode participar da transação de conclusão. |
+| **RPC10** | Adotar broker exige custo operacional. | O broker precisa responder a um problema real deste fluxo para compensar. |
 
 ### 5. Decisão do Tech Lead
 
-A preencher.
+**O que precisa ser imediato e o que pode ser eventual?**
+
+| Passo | Quando | Por quê |
+|---|---|---|
+| Conclusão, XP, nível e level-ups | **Síncrono, mesma transação** | O aluno precisa ver o resultado, e não pode haver recompensa sem conclusão |
+| Registro do evento na outbox | **Síncrono, mesma transação** | É o que garante que o aviso não se perde |
+| Cache do ranking e badges | Logo depois da transação, na mesma requisição | Dependem do XP gravado; uma falha é registrada e não desfaz a conclusão |
+| Notificação | **Eventual** | Depende de um canal externo, e atrasar minutos é aceitável |
+| Analytics (futuro) | **Eventual** | Não afeta o aluno |
+
+**Que ASR justificaria mensageria?** Nenhuma das atuais exige um broker: as ASR9 a ASR11 são atendidas com a outbox.
+Justificaria um requisito de **alcançar outros processos ou consumidores independentes**, ou de **reprocessar o histórico**.
+
+**RabbitMQ ou Kafka resolvem um problema real deste fluxo?** Hoje, **não**. Há um consumidor, no mesmo processo. E o risco
+principal é a escrita dupla: publicar no broker depois do commit perde o evento se o processo cair entre os dois passos, então
+um broker **ainda exigiria uma outbox**. Ele acrescentaria um serviço para operar sem eliminar esse risco.
+
+**RabbitMQ x Kafka, pelo problema do case:**
+
+| Critério | RabbitMQ (fila de tarefas com reentrega) | Kafka (log de eventos com replay) |
+|---|---|---|
+| Modelo | Mensagem é uma tarefa, removida depois de confirmada | Evento é um registro retido, e cada consumidor controla sua posição |
+| Notificar o aluno | **Encaixe direto:** uma tarefa, reentrega e dead letter | Possível, mas novas tentativas e dead letter ficam a cargo do consumidor |
+| Analytics reprocessando o passado | Não atende, porque a mensagem já saiu da fila | **Encaixe direto** |
+| Vários consumidores independentes | Atende, com uma fila por consumidor | Atende, com grupos de consumidores |
+| Custo para 6 devs | Um serviço a mais | Maior: partições, retenção e cluster |
+| **Se o gatilho surgir** | **Primeira opção**, se a necessidade for entregar tarefas a outro processo | Primeira opção, se a necessidade for replay |
+
+**Decisão:** **outbox transacional com eventos internos**, sem broker, com gatilhos medidos para migrar. Os gatilhos estão no
+[ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md), e a migração fica limitada ao `OutboxRelay`.
 
 ### 6. Alternativas e trade-offs
 
-A preencher.
+| Critério | (A) Síncrono | (B) `@Async` sem persistência | (C) Outbox + eventos internos | (D) RabbitMQ | (E) Kafka |
+|---|---|---|---|---|---|
+| Consumidor fora do ar | **Falha para o aluno** | Conclui, mas o evento se perde | **Conclui e entrega depois** | Conclui e entrega depois | Conclui e entrega depois |
+| Queda logo depois do commit | Sem aviso | **Evento perdido** | **Recuperado** | Perdido, sem outbox | Perdido, sem outbox |
+| Serviços novos | 0 | 0 | **0** | 1 | 1 ou mais |
+| Consumidor em outro processo | Por chamada direta | Não | Não | **Sim** | **Sim** |
+| Replay do histórico | Não | Não | Não | Não | **Sim** |
+| Aderência às RPCs | Conflita com a RPC9 | Atende | **Atende** | Custo da RPC10 sem problema correspondente | Custo da RPC10 sem problema correspondente |
 
 ### 7. ADR
 
-A preencher.
+[**ADR-004 — Eventos internos com outbox transacional, sem broker por enquanto**](adr/ADR-004-eventos-com-outbox-transacional.md)
+— status **Aceito**, 2026-11-03.
 
 ### 8. C4
 
-A preencher.
+Nível afetado: **Container**. Não há container novo: essa é a consequência da decisão. A outbox fica dentro do banco, e os eventos
+circulam dentro do Core; o broker aparece só como planejado, condicionado aos gatilhos.
+
+```mermaid
+C4Container
+  title Educação Continuada Gamificada — Containers com eventos de conclusão
+
+  Person(aluno, "Aluno")
+
+  System_Boundary(plataforma, "Plataforma") {
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 — Monólito Modular", "cursos publica CursoConcluidoEvent em processo; notificacoes consome")
+    ContainerDb(db, "Banco relacional", "PostgreSQL 16 (porta 5433 no host)", "Inclui course_completions, course_outbox_events e notifications")
+    Container(ia, "Serviço de IA", "Python 3.14, FastAPI", "Inalterado; opcional para o Core")
+    Container(broker, "Broker (planejado)", "RabbitMQ ou Kafka", "Só se os gatilhos B1 a B5 do ADR-004 ocorrerem")
+  }
+
+  System_Ext(canal, "Canal de notificação", "E-mail ou push; simulado neste lab")
+
+  Rel(aluno, core, "Conclui curso", "HTTPS, síncrono")
+  Rel(core, db, "Conclusão, XP e outbox na mesma transação; varredura", "JPA/JDBC")
+  Rel(core, ia, "Pede recomendações", "HTTP/JSON, com timeout")
+  Rel(core, canal, "Envia notificação, de forma assíncrona e com novas tentativas", "Porta NotificationChannel")
+```
+
+**Fluxo crítico:** a parte síncrona termina no commit; o que vem depois não muda a resposta.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Aluno
+    participant Cursos as Core: cursos
+    participant Prog as Core: progression
+    participant DB as PostgreSQL
+    participant Relay as Core: OutboxRelay
+    participant Notif as Core: notificacoes
+    participant Canal as Canal externo
+
+    rect rgb(225, 240, 255)
+    Note over Aluno,DB: SÍNCRONO: mesma transação
+    Aluno->>Cursos: POST /cursos/{c}/alunos/{a}/conclusao
+    Cursos->>DB: grava conclusão (única por aluno e curso)
+    Cursos->>Prog: concede XP na transação
+    Prog->>DB: grava XP, nível e level-ups (@Version)
+    Cursos->>DB: grava evento na outbox (PENDING)
+    DB-->>Cursos: COMMIT
+    end
+    Cursos->>Cursos: badges e cache do ranking, sem desfazer a conclusão
+    Cursos-->>Aluno: 201 com XP e nível
+
+    rect rgb(255, 243, 224)
+    Note over Relay,Canal: ASSÍNCRONO: depois do commit, em outra thread
+    Relay->>DB: reserva o evento (update condicional)
+    Relay->>Notif: CursoConcluidoEvent
+    Notif->>Canal: envia
+    alt canal disponível
+        Canal-->>Notif: ok
+        Notif->>DB: grava notificação (única por evento)
+        Relay->>DB: DELIVERED
+    else canal fora do ar
+        Canal--xNotif: exceção
+        Relay->>DB: PENDING com espera maior, ou DEAD ao esgotar
+        Note over Relay,DB: a varredura tenta de novo, inclusive depois de uma queda
+    end
+    end
+```
 
 ### 9. Evidência
 
-A preencher.
+**Hipótese testada:** com o evento gravado na mesma transação, a conclusão não depende do consumidor, e nada se perde mesmo com o
+consumidor fora do ar e queda do processo, **sem precisar de broker**.
+
+| # | O que se testa | Como reproduzir | Resultado obtido |
+|---|---|---|---|
+| 1 | Consumidor fora do ar | `mvnw.cmd test -Dtest=CourseCompletionIntegrationTest` | Conclusão responde **201** com o XP gravado; o evento fica `PENDING` com tentativas e erro; a notificação sai sozinha quando o canal volta. |
+| 2 | Consumidor preso | Mesmo comando | Responde em menos de 1,5 s. |
+| 3 | Tentativas esgotadas | Mesmo comando | Evento vai para `DEAD`; o reenvio manual entrega. |
+| 4 | Queda do processo | Mesmo comando, com evento gravado sem aviso de commit | A varredura entrega; acumulado maior que um lote também é drenado. |
+| 5 | Atomicidade | Mesmo comando | Falha ao gravar o evento desfaz conclusão, XP e level-ups. |
+| 6 | Uma única recompensa | Mesmo comando | 8 conclusões simultâneas do mesmo curso: uma 201, as demais 200, e XP concedido uma vez. Repetição: 200, sem novo XP nem notificação. |
+| 7 | Concorrência e pool | Mesmo comando | 8 cursos simultâneos somam todo o XP; 30 conclusões acima do pool de conexões não travam nem perdem badges. |
+| 8 | Os testes detectam a quebra | 4 mudanças temporárias na decisão | Build **falha em todas**: [`d4-falhas-simuladas.txt`](evidencias/d4-falhas-simuladas.txt). |
+| 9 | Cenário real em PostgreSQL | Roteiro abaixo | Tabela abaixo e [`d4-postgres.txt`](evidencias/d4-postgres.txt). |
+| 10 | Build completo | `mvnw.cmd -B clean verify` | **123 testes**, 0 falhas. **100%** de cobertura: linhas 505/505, branches 54/54. |
+
+#### Resultados em PostgreSQL
+
+Execução única em 2026-11-03, em um computador local, com banco, Core e carga na mesma máquina.
+
+| Cenário | Resultado |
+|---|---|
+| Conclusão com o canal fora do ar | **201 em 0,13 s**; evento `PENDING`, 1 tentativa e o erro registrado; nenhuma notificação; XP gravado |
+| Queda forçada do processo (`Stop-Process -Force`) e volta do canal | 2 eventos pendentes entregues **0,2 s depois de o Core subir**; sem repetição |
+| Repetir a conclusão | 200, `alreadyCompleted: true`, XP inalterado |
+| Tentativas esgotadas | `DEAD`, mesmo depois de reiniciar; reenvio responde 202, e o evento vai para `DELIVERED` |
+| 800 conclusões, 20 threads, canal no ar | 45 por segundo; **800 com 201**; mediana de 393 ms e p95 de 784 ms; 800 notificações em 24,8 s |
+| 800 conclusões, 20 threads, canal fora do ar | 40 por segundo; **800 com 201**; mediana de 443 ms e p95 de 920 ms |
+| Recuperação do acumulado de 800 | Entregue cerca de 43 s depois de o Core subir |
+| Total ao final | 1.601 conclusões e 1.601 notificações; **0 notificações repetidas; 0 alunos com XP divergente** |
+
+#### Defeito encontrado pela evidência
+
+A primeira versão passava em todos os testes, mas a carga em PostgreSQL **travou**: com 20 threads, as requisições ficaram mais
+de 60 s sem resposta, e só 44 conclusões foram gravadas. O log mostrou `Connection is not available` (`total=10, active=10`) 74
+vezes. Os badges rodavam depois do commit em `REQUIRES_NEW`, pedindo uma segunda conexão enquanto a primeira continuava presa;
+acima de 10 requisições, todas esperavam umas pelas outras, e badges se perdiam.
+
+A correção foi publicar o evento de pontuação **depois que a transação termina**. O teste
+`conclusoesAcimaDoPoolDeConexoesNaoTravamNemPerdemBadges` falhava antes do ajuste, e a carga repetida teve 0 esgotamentos.
+
+#### Roteiro manual
+
+Comandos em PowerShell, na raiz do projeto. Usa as portas 5433 (PostgreSQL) e 8080 (Core).
+
+```powershell
+# Terminal 1: sobe o PostgreSQL e gera o jar
+docker compose up -d --wait postgres
+.\mvnw.cmd -B package -DskipTests
+
+# Terminal 2: sobe o Core com o canal de notificacao fora do ar
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5433/ac1devops_db"; $env:NOTIFICACOES_CANAL_DISPONIVEL="false"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+
+# Terminal 1: conclui um curso com o canal fora do ar (print d4-01)
+$id = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/students -ContentType application/json -Body '{"name":"Aluno Roteiro"}').id; "Aluno $id"
+curl.exe -s -w "`nHTTP %{http_code} em %{time_total}s`n" -X POST "http://localhost:8080/cursos/ci-cd/alunos/$id/conclusao"
+
+# Terminal 1: a conclusao ficou gravada, e a notificacao, pendente (print d4-02)
+Start-Sleep 6
+Invoke-RestMethod http://localhost:8080/cursos/eventos | ForEach-Object { $_ } | Where-Object studentId -eq $id | Format-Table id,status,attempts,lastError
+curl.exe -s "http://localhost:8080/students/$id"; ""
+curl.exe -s "http://localhost:8080/notificacoes/students/$id"; ""
+
+# Terminal 1: simula a queda do processo (print d4-03)
+Get-CimInstance Win32_Process -Filter "Name='java.exe'" | Where-Object CommandLine -like '*Grupo10_ATDD*' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force; "Core encerrado a forca: PID $($_.ProcessId)" }
+
+# Terminal 2: sobe o Core de novo, agora com o canal no ar
+$env:NOTIFICACOES_CANAL_DISPONIVEL="true"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+
+# Terminal 1: depois que o Core subir, a notificacao foi recuperada sem nova chamada (print d4-04)
+Invoke-RestMethod http://localhost:8080/cursos/eventos | ForEach-Object { $_ } | Where-Object studentId -eq $id | Format-Table id,status,attempts,lastError
+curl.exe -s "http://localhost:8080/notificacoes/students/$id"; ""
+curl.exe -s -w "`nHTTP %{http_code} em %{time_total}s`n" -X POST "http://localhost:8080/cursos/ci-cd/alunos/$id/conclusao"
+
+# Opcional: tentativas esgotadas e reenvio manual (print d4-05)
+# Terminal 2: Ctrl+C e depois:
+$env:NOTIFICACOES_CANAL_DISPONIVEL="false"; $env:CURSOS_OUTBOX_MAX_ATTEMPTS="2"; $env:CURSOS_OUTBOX_BASE_BACKOFF="1s"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+# Terminal 1, depois que o Core subir:
+curl.exe -s -o NUL -w "Conclusao: HTTP %{http_code}`n" -X POST "http://localhost:8080/cursos/docker-essencial/alunos/$id/conclusao"
+Start-Sleep 9
+$evento = Invoke-RestMethod http://localhost:8080/cursos/eventos | ForEach-Object { $_ } | Where-Object { $_.studentId -eq $id -and $_.status -eq 'DEAD' } | Select-Object -First 1; $evento | Format-Table id,status,attempts,lastError
+# Terminal 2: Ctrl+C e depois:
+$env:NOTIFICACOES_CANAL_DISPONIVEL="true"; Remove-Item Env:CURSOS_OUTBOX_MAX_ATTEMPTS; Remove-Item Env:CURSOS_OUTBOX_BASE_BACKOFF; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+# Terminal 1, depois que o Core subir:
+curl.exe -s -o NUL -w "Reenvio: HTTP %{http_code}`n" -X POST "http://localhost:8080/cursos/eventos/$($evento.id)/reenvio"
+Start-Sleep 7
+Invoke-RestMethod http://localhost:8080/cursos/eventos | ForEach-Object { $_ } | Where-Object studentId -eq $id | Format-Table id,status,attempts,lastError
+
+# Opcional: carga
+py labs\desafio-4\carga_conclusoes.py 100 20
+
+# Ao terminar: Ctrl+C no Terminal 2 e depois, no Terminal 1:
+docker compose stop postgres
+```
+
+#### Limites desta evidência
+
+- **Canal simulado:** não há envio real de e-mail ou push.
+- **Medição local:** os números de carga são de uma execução, com tudo na mesma máquina; servem de ordem de grandeza e de base para
+  os gatilhos, não como capacidade de produção.
+- **Latência sob carga:** o p95 maior com o canal fora do ar pode refletir também o trabalho das falhas na mesma máquina.
+- **Uma réplica:** a reserva dos eventos foi pensada para várias réplicas, mas só foi testada com uma.
+- **Duplicação possível:** uma queda entre o envio e a gravação da notificação pode repetir o envio; não ocorreu nos testes.
+- **Tabela da outbox:** cresce sem limpeza, e eventos `DEAD` não geram alerta.
 
 ---
 
@@ -1191,9 +1424,9 @@ A consolidar ao fim do Desafio 6, a partir da matriz cumulativa de ASRs.
 | Artefato | Caminho |
 |---|---|
 | Repositório | <https://github.com/GuilhermDias/AC1-Devops> |
-| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md) |
-| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component). Desafio 3: item 8 (Container) |
-| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java), [`RecomendacaoApi`](../../src/main/java/org/example/ac1devops/recomendacao/api/RecomendacaoApi.java) |
+| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md), [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) |
+| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component). Desafio 3: item 8 (Container). Desafio 4: item 8 (Container e sequência) |
+| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java), [`RecomendacaoApi`](../../src/main/java/org/example/ac1devops/recomendacao/api/RecomendacaoApi.java), [`CursosApi`](../../src/main/java/org/example/ac1devops/cursos/api/CursosApi.java), [`NotificacoesApi`](../../src/main/java/org/example/ac1devops/notificacoes/api/NotificacoesApi.java) |
 | Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
 | Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | Serviço de IA | [`labs/desafio-3/ia-service`](../../labs/desafio-3/ia-service/) |
