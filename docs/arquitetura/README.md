@@ -49,12 +49,12 @@ ficam em [`evidencias/img/`](evidencias/img/), com o prefixo do desafio (`d1-`, 
 
 ## Matriz cumulativa de ASRs
 
-A numeração é global: novos desafios continuam a partir da ASR15.
+A numeração é global, de ASR1 a ASR17.
 
 | ASR | Desafio de origem | RNF / FURPS+ | Decisão / ADR | Evidência | Status |
 |---|---|---|---|---|---|
 | **ASR1** — Evoluir funcionalidades com baixo acoplamento | Desafio 1 | Manutenibilidade / S | Monólito Modular, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); mini-lab (item 9.8) | **Atendido** |
-| **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4) | **Parcial:** medido só em H2, sem carga e sem p95; observabilidade não implementada |
+| **ASR2** — Ranking com p95 ≤ 300 ms para 100.000 usuários | Desafio 1 | Desempenho e Escalabilidade / P | Índice, paginação, cache e gatilhos G1–G5, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | [`RankingPerformanceTest`](../../src/test/java/org/example/ac1devops/ranking/internal/RankingPerformanceTest.java) (item 9.4); [p95 em PostgreSQL, com 100.000 alunos](evidencias/d6-observabilidade.txt) (D6) | **Atendido** para top 100 (114 ms) e posição (79 ms), em medição local; página aleatória no limite (317 ms); várias réplicas sem teste |
 | **ASR3** — Fronteiras verificáveis automaticamente | Desafio 1 | Testabilidade / S | ArchUnit no `verify` e no CI, [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) | Falha simulada em [`archunit-violacao.txt`](evidencias/archunit-violacao.txt); [`ci.yml`](../../.github/workflows/ci.yml); prints do CI: [runs](evidencias/img/d1-ci-verde.png), [resumo](evidencias/img/d1-ci-resumo.png), [etapas](evidencias/img/d1-ci-etapas.png) | **Atendido (CI no GitHub)** |
 | **ASR4** — Mudar regra de gamificação sem tocar em persistência ou framework | Desafio 2 | Modificabilidade / S | Ports & Adapters só em `conquistas`, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java) nos dois adapters; [mutação da regra](evidencias/d2-mutacao-regra.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
 | **ASR5** — Regra de gamificação testável sem Spring nem banco | Desafio 2 | Testabilidade / S | Domínio puro com adapter em memória; ArchUnit na fronteira, [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) | [`BadgeAwardInMemoryTest`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardInMemoryTest.java); [violação barrada](evidencias/d2-archunit-violacao.txt); CI no GitHub, run #2: [lista de runs](evidencias/img/d2-ci-verde.png), [etapas do job](evidencias/img/d2-ci-etapas.png) | **Atendido** |
@@ -67,6 +67,9 @@ A numeração é global: novos desafios continuam a partir da ASR15.
 | **ASR12** — Evento confirmado sobrevive à conexão instável | Desafio 5 | Conectividade intermitente e Disponibilidade / R | QoS 1 e sessão persistente, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`MqttBrokerIntegrationTest`](../../src/test/java/org/example/ac1devops/iot/internal/adapter/mqtt/MqttBrokerIntegrationTest.java); [fluxo real](evidencias/d5-fluxo-real.txt); prints ([dispositivo offline](evidencias/img/d5-03-dispositivo-offline.png), [Core fora do ar](evidencias/img/d5-04-core-fora.png)) | **Atendido** em um gateway |
 | **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições; [print do reenvio](evidencias/img/d5-02-reenvio-duplicado.png) | **Atendido** |
 | **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py); prints ([eventos](evidencias/img/d5-01-eventos-normais.png), [CI](evidencias/img/d5-05-ci-verde.png)) | **Atendido**; autenticação e TLS pendentes para uso real |
+| **ASR15** — Nenhum artefato sai sem passar pelos gates | Desafio 6 | Testabilidade e Confiabilidade / S, R | Esteira única com estágios por componente, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`Jenkinsfile`](../../Jenkinsfile); comandos de todos os estágios executados | **Parcial:** falta executar no Jenkins (prints `d6-01` e `d6-02`) |
+| **ASR16** — ASRs de execução observáveis em operação | Desafio 6 | Observabilidade e Desempenho / S, P | Métricas por ASR, Prometheus e Grafana, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`ObservabilityIntegrationTest`](../../src/test/java/org/example/ac1devops/web/ObservabilityIntegrationTest.java); [fluxo real](evidencias/d6-observabilidade.txt): fallback de 90,8% com alerta ativo | **Atendido**; aparência do painel a confirmar no print `d6-04` |
+| **ASR17** — Operação reproduzível a partir do repositório | Desafio 6 | Recuperabilidade / R | Configurações versionadas e compose próprio, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`observabilidade/`](../../observabilidade/); [fluxo real](evidencias/d6-observabilidade.txt): recriado do zero | **Atendido** para a observabilidade; job do Jenkins é manual |
 
 ---
 
@@ -350,9 +353,8 @@ Situação atual no item 9.1: **100%** de linhas, branches, instruções e méto
 
 #### 9.6 Observabilidade
 
-**Não implementada.** Não há Actuator, Micrometer, Prometheus nem Grafana no `pom.xml`, no
-`docker-compose.yml`, em `src/` ou no CI; os termos aparecem apenas neste documento e no ADR-001,
-como desenho-alvo. Consequência: os gatilhos G1–G5 (item 5) ainda não podem ser medidos.
+Ao fim do Desafio 1, **não estava implementada**: os gatilhos G1–G5 (item 5) ainda não podiam ser medidos. Foi entregue no
+[Desafio 6](#desafio-6--cicd-e-observabilidade), onde o p95 do ranking foi medido em PostgreSQL.
 
 #### 9.7 Teste com Mocks
 
@@ -951,7 +953,7 @@ C4Container
 limite, o Core usa a lista de populares. Os contratos estão em
 [`contract/`](../../labs/desafio-3/ia-service/contract/). O endereço vem de `IA_SERVICE_URL`.
 
-Prometheus e Grafana seguem planejados (Desafio 1, item 9.6) e foram omitidos aqui para destacar a mudança.
+Prometheus e Grafana foram entregues no [Desafio 6](#desafio-6--cicd-e-observabilidade) e estão omitidos aqui para destacar a mudança.
 
 ### 9. Evidência
 
@@ -1357,7 +1359,7 @@ docker compose stop postgres
 - **Latência sob carga:** o p95 maior com o canal fora do ar pode refletir também o trabalho das falhas na mesma máquina.
 - **Uma réplica:** a reserva dos eventos foi pensada para várias réplicas, mas só foi testada com uma.
 - **Duplicação possível:** uma queda entre o envio e a gravação da notificação pode repetir o envio; não ocorreu nos testes.
-- **Tabela da outbox:** cresce sem limpeza, e eventos `DEAD` não geram alerta.
+- **Tabela da outbox:** cresce sem limpeza. Eventos `DEAD` passaram a gerar alerta no Prometheus, no Desafio 6, sem envio de notificação.
 
 ---
 
@@ -1633,71 +1635,477 @@ docker compose stop postgres mosquitto
 
 ---
 
-## Desafio 6
+## Desafio 6 — CI/CD e observabilidade
 
-> **Status:** aguardando enunciado.
+Como testar, implantar e observar com segurança uma solução com Core em Java, serviço de IA em Python, Mosquitto, simulador de dispositivo e
+PostgreSQL.
 
 ### 1. RF
 
-A preencher.
+Este desafio não cria funcionalidade: atua sobre **todos os RFs**, na operação e na evolução. O estado final dos RFs está na
+[Síntese final](#síntese-final-decisões-levadas-para-a-poc-da-af).
+
+| RF impactado | Efeito deste desafio |
+|---|---|
+| Ranking | Métrica `ranking_query_seconds`, com p95 no Prometheus |
+| Conquistas | Métrica `conquistas_badges_awarded_total` |
+| Recomendação | Métrica `ia_recommendations_total{outcome}` |
+| Conclusão e notificações | Métrica `outbox_events{status}` |
+| Eventos IoT | Métrica `iot_events_total{result}` |
+| Todos | Gates na esteira, métricas HTTP e painel de operação |
 
 ### 2. RNF (FURPS+)
 
-A preencher.
+| RNF | FURPS+ | Meta mensurável | Resultado |
+|---|---|---|---|
+| **Observabilidade** | S (Supportability: serviceability) | Latência, 5xx, throughput e uma métrica por ASR de execução em um painel | Atendida: 10 painéis, todos com dados no teste |
+| **Testabilidade** | S (Supportability) | Todos os gates automatizados | Atendida: 161 testes no Core, 12 e 9 nos componentes Python |
+| **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida no Jenkinsfile; **falta a execução no Jenkins** |
+| **Deploy independente** | + (restrição de implantação) | Artefatos separados, verificados por componente | Atendida: jar e imagem separados; sem publicação automática |
+| **Recuperabilidade** | R (Reliability) | Ambiente de observação recriado com um comando | Atendida: compose com tudo versionado, recriado do zero no teste |
+| **Desempenho** | P (Performance) | p95 do ranking ≤ 300 ms, com 100.000 alunos | Top 100: 114 ms. Posição: 79 ms. Página aleatória: 317 ms sob 10 threads |
 
 ### 3. ASR
 
-A preencher.
+| ASR | RNF de origem | Como altera a arquitetura (uma frase) |
+|---|---|---|
+| **ASR15 — Nenhum artefato sai sem passar pelos gates** | Testabilidade e Confiabilidade | Altera a **operação**: testes, ArchUnit, JaCoCo e pytest viram estágios que impedem o arquivamento do artefato. |
+| **ASR16 — ASRs de execução observáveis em operação** | Observabilidade e Desempenho | Altera a **estrutura e a operação**: os módulos publicam métricas, e entram no sistema Prometheus e Grafana, fora do fluxo das requisições. |
+| **ASR17 — Operação reproduzível a partir do repositório** | Recuperabilidade | Altera a **implantação**: esteira, fonte de dados, painel e alertas passam a ser arquivos versionados. |
+
+Deploy independente não gera ASR novo: já está na ASR7.
 
 ### 4. RPC
 
-A preencher.
+| RPC | Restrição | Impacto na decisão |
+|---|---|---|
+| **RPC14** | Jenkins é a base da esteira. | O Jenkinsfile é a referência; o GitHub Actions continua como verificação adicional. |
+| **RPC15** | Prometheus e Grafana são as ferramentas do laboratório. | Métricas no formato do Prometheus, com Actuator e Micrometer. |
+| **RPC16** | Artefatos e configurações devem ser versionados. | Painel, alertas e fonte de dados em arquivos, sem configuração manual. |
+
+Restrição do ambiente: a porta 9090 é do Jenkins, então o Prometheus usa a **9091**.
 
 ### 5. Decisão do Tech Lead
 
-A preencher.
+**Serviços independentes exigem pipelines independentes?** **Não necessariamente.** Eles exigem artefatos e verificações independentes. Com um repositório,
+6 pessoas, nenhuma publicação automática e uma esteira de cerca de 3 minutos, um pipeline com estágios por componente atende. Os gatilhos para separar estão
+no [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md).
+
+**O que deve bloquear o deploy?**
+
+| Gate | Protege | Bloqueia? |
+|---|---|---|
+| Compilação e testes do Core | RFs e contratos | **Sim** |
+| ArchUnit | ASR1, ASR3, ASR5, ASR14 | **Sim**, e roda primeiro, por ser o mais rápido |
+| JaCoCo, piso de 90% de linhas e branches | ASR3 | **Sim** |
+| pytest do serviço de IA | ASR7, ASR8 | **Sim** |
+| pytest do simulador | ASR12 | **Sim** |
+| Alertas do Prometheus | ASRs em execução | Não: são da operação, não do build |
+
+**Quais métricas validam ASRs anteriores, e o que é métrica técnica e o que é evidência arquitetural?** A **métrica técnica** diz o que está acontecendo. A
+**evidência arquitetural** liga isso a uma decisão: precisa de meta, de uma hipótese que poderia ser falsa e de uma condição que a exercite.
+
+| ASR | Métrica técnica | Como vira evidência arquitetural | Medido no teste |
+|---|---|---|---|
+| **ASR2** (D1) | `ranking_query_seconds` | p95 comparado à meta de 300 ms, com 100.000 alunos e carga; decide o gatilho G1 de extração | Top 100: 114 ms; posição: 79 ms |
+| **ASR6** (D3) | `ia_recommendations_total{outcome}` | Derrubar a IA: o fallback sobe, e `http_server_requests` permite conferir que não há 5xx nem mudança no fluxo essencial | 90,8% de fallback e alerta `FallbackDaIaAlto` ativo; as respostas com HTTP 200 foram verificadas no D3 |
+| **ASR11** (D4) | `outbox_events{status}` | `PENDING` volta a 0 depois de o consumidor voltar; `DEAD` igual a 0 sem intervenção | 40 `DELIVERED`, 0 `PENDING`, 0 `DEAD` |
+| **ASR12, ASR13** (D5) | `iot_events_total{result}` | Reenvio gera `DUPLICATE`, sem novo efeito; só faz sentido com o XP conferido | 4 `ACCEPTED`, 1 `DUPLICATE`, 3 `INVALID` |
+| Defeito do D4 | `hikaricp_connections_pending` | Conexões aguardando sob carga indicam a volta do esgotamento do pool | 0 durante a carga |
+
+**O que métrica não valida:** ASR1, ASR3, ASR4, ASR5, ASR10 e ASR14 são propriedades da estrutura ou da transação. Elas são provadas por ArchUnit, testes e falhas simuladas.
+O contador de badges (`conquistas_badges_awarded_total`) mostra a regra do D2 em uso, mas **não prova** a modificabilidade da ASR4.
+
+**Decisão:** **pipeline único com estágios paralelos por componente** e observabilidade em compose próprio. Registro formal no
+[ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md).
 
 ### 6. Alternativas e trade-offs
 
-A preencher.
+| Critério | (A) Único sequencial | (B) Único com paralelos | (C) Um Jenkinsfile por componente | (D) Detecção de mudança por pasta |
+|---|---|---|---|---|
+| Configuração no Jenkins | 1 job | **1 job** | 3 jobs | 1 job, com regras por pasta |
+| Tempo | Maior | **Cerca de 3 min** | Menor por componente | Menor na maioria das mudanças |
+| Contrato entre Core e IA | Sempre verificado | **Sempre verificado** | Depende de coordenar os jobs | Pode ser pulado |
+| Publicação independente | Não | Não, mas com artefatos separados | **Sim** | Parcial |
+| Um único resultado para o commit | Sim | **Sim** | Não | Sim |
+| Contra principal | Desperdiça tempo | Toda mudança roda tudo | Custo para 6 pessoas | Falsa sensação de verificação |
 
 ### 7. ADR
 
-A preencher.
+[**ADR-006 — Esteira única no Jenkins e observabilidade que valida os ASRs**](adr/ADR-006-esteira-unica-e-observabilidade.md) — status **Aceito**, 2026-11-03.
 
 ### 8. C4
 
-A preencher.
+Nível afetado: **Deployment**, com os elementos de operação. A versão final dos demais níveis está na
+[Síntese final](#síntese-final-decisões-levadas-para-a-poc-da-af).
+
+```mermaid
+C4Deployment
+  title Implantação do laboratório: uma máquina de desenvolvimento
+
+  Deployment_Node(maquina, "Máquina local", "Windows 11") {
+    Deployment_Node(jenkins, "Jenkins local", "Porta 9090") {
+      Container(esteira, "Esteira", "Jenkinsfile", "Build, ArchUnit, testes, JaCoCo, pytest e artefatos")
+    }
+    Deployment_Node(docker, "Docker Desktop", "Compose principal") {
+      Container(core, "Core API", "Spring Boot, porta 8080", "Expõe /actuator/prometheus")
+      ContainerDb(db, "PostgreSQL 16", "Porta 5433", "Dados de todos os módulos")
+      Container(ia, "Serviço de IA", "FastAPI, porta 8000", "Imagem própria")
+      Container(broker, "Mosquitto", "MQTT, porta 1883, só localhost", "Sessões em disco")
+    }
+    Deployment_Node(obs, "Docker Desktop", "Compose observabilidade") {
+      Container(prom, "Prometheus", "Porta 9091, só localhost", "Coleta a cada 5 s; alertas")
+      Container(graf, "Grafana", "Porta 3000, só localhost", "Fonte de dados e painel provisionados")
+    }
+  }
+
+  Deployment_Node(lab, "Laboratório", "Rede instável") {
+    Container(dispositivo, "Dispositivo", "Simulador paho-mqtt", "Publica eventos com QoS 1")
+  }
+
+  Deployment_Node(github, "GitHub", "Nuvem") {
+    Container(actions, "GitHub Actions", "ci.yml", "3 jobs a cada push")
+  }
+
+  Rel(core, db, "JDBC")
+  Rel(core, ia, "HTTP/JSON, com timeout")
+  Rel(core, broker, "MQTT, assinatura")
+  Rel(dispositivo, broker, "MQTT, QoS 1")
+  Rel(prom, core, "Coleta métricas", "HTTP")
+  Rel(graf, prom, "Consulta", "PromQL")
+```
 
 ### 9. Evidência
 
-A preencher.
+**Hipótese testada:** um único pipeline consegue barrar artefatos em todos os componentes, e as métricas permitem ver em execução se os ASRs continuam valendo, inclusive provocando uma falha.
+
+| # | O que se testa | Como reproduzir | Resultado obtido |
+|---|---|---|---|
+| 1 | Comandos de cada estágio do [`Jenkinsfile`](../../Jenkinsfile) | Os mesmos comandos, na mesma ordem, em 2026-11-03 | Todos com sucesso em cerca de 3 min: build 12 s, ArchUnit 27 s, testes 108 s, JaCoCo 6 s, IA 28 s, simulador 11 s e empacotamento 12 s. Relatórios XML e jar gerados. |
+| 2 | Métricas expostas | `mvnw.cmd test -Dtest=ObservabilityIntegrationTest` | As métricas dos ASRs aparecem em `/actuator/prometheus`; `/actuator/env` responde 404. |
+| 3 | Domínio sem métricas | `mvnw.cmd test -Dtest=ModularArchitectureTest` | Regra `dominioSemFrameworkNemAdapters` inclui Micrometer. |
+| 4 | Fluxo real, com falha provocada | Roteiro abaixo | Tabela abaixo e [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt). |
+| 5 | Build completo | `mvnw.cmd -B clean verify` | **161 testes**, 0 falhas. Cobertura: linhas 693/695 (99,7%) e branches 86/86. |
+
+**Não verificado por este documento:** o Jenkinsfile **não foi executado no Jenkins**, porque o job depende de configuração manual e o validador exige login. A renderização do painel também não foi vista: as consultas dos 10 painéis retornaram dados pela API, mas a aparência só será conferida nos prints.
+
+#### Resultados do fluxo real
+
+PostgreSQL 16 descartável, Core em jar, serviço de IA e Mosquitto reais, Prometheus e Grafana provisionados. Tudo na mesma máquina, em 2026-11-03.
+
+**ASR2: primeira medição de p95 em PostgreSQL, com 100.000 alunos** (carga de [`carga_ranking.py`](../../labs/desafio-6/carga_ranking.py), sem cache, execução única):
+
+| Operação | 3 threads, p95 | 10 threads, p95 | Meta |
+|---|---|---|---|
+| Top 100 | 44 ms | **114 ms** | ≤ 300 ms |
+| Posição do aluno | 32 ms | **79 ms** | ≤ 300 ms |
+| Página aleatória, 20 alunos | 165 ms | **317 ms** | Fora da meta original; **no limite** sob 10 threads |
+
+Numa primeira rodada, sem o top 100 na carga, o Prometheus e o cliente concordaram na ordem de grandeza: página com 323 ms e 316 ms; posição com 61 ms e 74 ms.
+
+A página aleatória fica lenta por causa do deslocamento (`OFFSET`) e da contagem total a cada consulta. Como o ranking é consultado principalmente no topo e pela posição do aluno, **não alterei a consulta**: se o gatilho G1 ocorrer em uso real, o caminho é paginação por cursor e cache da contagem.
+
+**Condições provocadas:**
+
+| Condição | Resultado observado |
+|---|---|
+| Serviço de IA derrubado, com requisições contínuas | 20 respostas da IA e depois 112 de fallback; **taxa de 90,8%**; alerta `FallbackDaIaAlto` **ativo**. O status HTTP dessas chamadas não foi registrado aqui: o teste automatizado do D3 cobre esse ponto, e o painel de 5xx o mostrará no print `d6-05` |
+| 40 conclusões, com o canal no ar | 40 `DELIVERED`, 0 `PENDING`, 0 `DEAD`; 25 badges |
+| Eventos IoT, com reenvio e inválidos | 4 `ACCEPTED`, 1 `DUPLICATE`, 3 `INVALID` |
+| Carga no ranking | 0 conexões aguardando no pool; 0 erros 5xx |
+| Operação | Alvo do Prometheus `up`; 5 regras de alerta válidas; Grafana com fonte de dados e painel provisionados |
+
+#### Como criar o job no Jenkins
+
+O Jenkins baixa o código do GitHub, então **faça o `git push` antes**.
+
+1. Abra <http://localhost:9090> e faça login.
+2. Clique em **Nova tarefa** (*New Item*), dê o nome `ac1devops-b1`, escolha **Pipeline** e clique em **OK**.
+3. Em **Pipeline**, no campo **Definition**, escolha **Pipeline script from SCM**.
+4. Em **SCM**, escolha **Git**.
+5. Em **Repository URL**, informe `https://github.com/GuilhermDias/AC1-Devops.git`. O repositório aceita leitura sem login; se o Jenkins recusar, cadastre uma credencial.
+6. Em **Branch Specifier**, troque para `*/feature/b1-architecture-lab`.
+7. Em **Script Path**, confirme `Jenkinsfile`.
+8. Clique em **Salvar** e depois em **Construir agora** (*Build Now*).
+
+São necessários os plugins **Pipeline**, **Git** e **JUnit**, que fazem parte da instalação sugerida. Se o build falhar por causa do ambiente:
+
+| Erro | Causa provável | Solução |
+|---|---|---|
+| `'py' não é reconhecido` | O Jenkins não enxerga o Python | Em *Gerenciar Jenkins* → *System* → *Variáveis de ambiente*, crie `PYTHON_CMD` com o caminho completo do `python.exe` |
+| `JAVA_HOME` ou versão do Java | O Jenkins não usa o Java 21 | Crie a variável `JAVA_HOME` da mesma forma, apontando para o JDK 21 |
+| `MqttBrokerIntegrationTest` ignorado | O Jenkins não acessa o Docker | Não falha o build: esses 4 testes são ignorados sem Docker, e o GitHub Actions continua a executá-los |
+
+#### Roteiro manual
+
+Comandos em PowerShell, na raiz do projeto. Usa as portas 1883, 3000, 8000, 8080 e 9091, com banco H2, para não tocar nos seus dados.
+
+```powershell
+# Terminal 1: sobe Prometheus, Grafana, Mosquitto e o servico de IA, e gera o jar
+docker compose -f observabilidade\docker-compose.yml up -d
+docker compose up -d mosquitto
+docker build -t ia-service:lab labs/desafio-3/ia-service
+docker run -d --rm --name ia-service -p 8000:8000 ia-service:lab
+.\mvnw.cmd -B package -DskipTests
+
+# Terminal 2: sobe o Core
+$env:SPRING_PROFILES_ACTIVE="h2"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+
+# Terminal 1: confere as metricas e o alvo do Prometheus (print d6-03: http://localhost:9091/targets)
+(curl.exe -s http://localhost:8080/actuator/prometheus) | Select-String 'ranking_query_seconds_count|outbox_events'
+Start-Process http://localhost:9091/targets
+
+# Terminal 1: gera dados para todos os paineis e abre o painel
+py labs\desafio-4\carga_conclusoes.py 5 5
+$id = (Invoke-RestMethod -Method Post -Uri http://localhost:8080/students -ContentType application/json -Body '{"name":"Aluno Observado"}').id
+py labs\desafio-5\simulador\simulador.py --modo normal --aluno $id --atividade ci-cd
+py labs\desafio-5\simulador\simulador.py --modo reenvio --aluno $id --atividade docker-essencial
+py labs\desafio-5\simulador\simulador.py --modo invalido --aluno $id
+py labs\desafio-6\carga_ranking.py 30 10
+1..30 | ForEach-Object { curl.exe -s -o NUL "http://localhost:8080/recomendacoes/students/$id"; Start-Sleep -Milliseconds 500 }
+Start-Process "http://localhost:3000/d/ac1devops"
+# Espere cerca de 30 s e tire o print d6-04
+
+# Terminal 1: provoca a falha, derrubando o servico de IA, e gera requisicoes por 1 minuto
+docker stop ia-service
+1..120 | ForEach-Object { curl.exe -s -o NUL -w "%{http_code} " "http://localhost:8080/recomendacoes/students/$id"; Start-Sleep -Milliseconds 500 }; ""
+Start-Process http://localhost:9091/alerts
+# Print d6-05: painel "Taxa de fallback da IA" perto de 100% e, em /alerts, FallbackDaIaAlto ativo
+
+# Opcional: p95 com 100.000 alunos, em um banco descartavel que NAO toca nos seus dados
+# Terminal 2: Ctrl+C e depois:
+docker run -d --rm --name d6-pg -e POSTGRES_DB=ac1devops_db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:55432:5432 postgres:16
+$env:SPRING_PROFILES_ACTIVE="postgres"; $env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:55432/ac1devops_db"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
+# Terminal 1, depois que o Core subir:
+Get-Content labs\desafio-6\seed_ranking.sql -Raw | docker exec -i d6-pg psql -q -U postgres -d ac1devops_db
+py labs\desafio-6\carga_ranking.py 40 10
+
+# Ao terminar: Ctrl+C no Terminal 2 e depois, no Terminal 1:
+docker stop d6-pg
+docker compose stop mosquitto
+docker compose -f observabilidade\docker-compose.yml down
+```
+
+Prints a salvar em `docs/arquitetura/evidencias/img/`:
+
+| Arquivo | O que mostrar |
+|---|---|
+| `d6-01-jenkins-verde.png` | Página do build no Jenkins com todos os estágios verdes |
+| `d6-02-jenkins-relatorios.png` | Resultado dos testes e artefatos arquivados (jar e JaCoCo) |
+| `d6-03-prometheus-alvos.png` | `http://localhost:9091/targets`, com o alvo `core` em `UP` |
+| `d6-04-grafana-painel.png` | Painel completo no Grafana, com latência, throughput, 5xx e métricas dos ASRs |
+| `d6-05-fallback-alerta.png` | Taxa de fallback perto de 100% e o alerta ativo |
+| `d6-06-ci-verde.png` | Run do GitHub Actions com os 3 jobs verdes |
+
+#### Limites desta evidência
+
+- **Jenkins:** esteira não executada no Jenkins até aqui; prova virá dos prints `d6-01` e `d6-02`.
+- **Gates:** a falha dos testes, do ArchUnit e do JaCoCo interrompe os comandos, como mostram as falhas simuladas dos desafios anteriores; a interrupção **dentro do Jenkins** não foi provocada.
+- **Medições:** execução única, com tudo na mesma máquina. Servem de ordem de grandeza, não como capacidade de produção. 100.000 alunos cadastrados não significam 100.000 simultâneos.
+- **Sem implantação automática:** a esteira entrega o artefato.
+- **Sem métricas no Python:** o serviço de IA é observado pelo Core; o simulador é só um dispositivo de teste.
+- **Sem notificação:** alertas ficam no Prometheus, e o endpoint de métricas não tem autenticação.
+- **Sem idade dos eventos:** a métrica conta os eventos por status, mas não informa há quanto tempo estão pendentes, o que o gatilho B5 do ADR-004 pediria.
 
 ---
 
-## Síntese final para a PoC da AF
+## Síntese final: decisões levadas para a PoC da AF
 
-A consolidar ao fim do Desafio 6, a partir da matriz cumulativa de ASRs.
+**Em uma frase:** um Monólito Modular em Spring Boot, com hexagonal só onde a regra muda ou a dependência falha, um serviço Python opcional para IA, eventos
+internos com outbox, MQTT para dispositivos e uma esteira que barra o artefato e métricas que mostram os ASRs em execução. Nenhum broker foi adicionado sem ASR
+que o justificasse.
 
-**Histórico do CI da branch** (`feature/b1-architecture-lab`): 5 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`),
-#3 (`b1a3d3a`), #4 (`3c3cce2`) e #5 (`49ab6b2`).
+### Quais ADRs entram na PoC e por quê
+
+| ADR | Entra na PoC? | Por quê | O que fica de fora |
+|---|---|---|---|
+| [ADR-001](adr/ADR-001-estilo-arquitetural-core.md) Monólito Modular | **Sim, é a base** | Dá baixo acoplamento com 1 artefato principal, para 6 pessoas. O p95 medido não pede extração. | Extração do Ranking, até os gatilhos G1–G5 |
+| [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md) Ports & Adapters seletivo | **Sim** | Regra de gamificação muda muito e é testada em 0,3 s, sem infraestrutura. | Hexagonal em todo o Core |
+| [ADR-003](adr/ADR-003-servico-python-de-ia.md) Serviço Python de IA | **Sim, com regra simulada** | Prova a fronteira: IA fora do ar não afeta o fluxo essencial. | Modelo real, RAG/LLM e assistente no Core |
+| [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) Outbox transacional | **Sim** | Conclusão não depende do consumidor, e nenhum evento se perde, inclusive com queda do processo. | RabbitMQ e Kafka, até os gatilhos B1–B5 |
+| [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) MQTT com gateway | **Sim, se a PoC incluir laboratórios** | É o que tolera a conexão instável. Se a AF não pedir dispositivos, é o primeiro corte: o restante não depende dele. | Segundo broker; TLS e autenticação ficam como pendência |
+| [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) Esteira e observabilidade | **Sim** | Sem ela, nada garante que os ASRs continuem valendo depois da entrega. | Pipelines separados e implantação automática |
+
+**Premissa:** o enunciado da AF não está no repositório. Revisar esta tabela quando o escopo da AF for definido.
+
+### Pendências antes de um uso real
+
+| Pendência | ASR afetada | Situação |
+|---|---|---|
+| TLS, autenticação e ACL no MQTT; autenticação na API e nas métricas | ASR14, ASR16 | Não implementado |
+| Teste de carga da escala independente da IA e da vazão do gateway | ASR7, ASR12 | Não medido |
+| Mais de uma réplica do Core: outbox, cache e gateway MQTT | ASR2, ASR11, ASR12 | Só testado com uma réplica |
+| Limpeza da outbox e dos eventos IoT | ASR11, ASR13 | Não implementado |
+| Paginação por cursor no ranking | ASR2 | Só se o gatilho G1 ocorrer |
+| Autenticação dos alunos na API | Todas | Fora do escopo do Lab |
+
+### Numeração dos RFs
+
+Os enunciados reaproveitam números. A tabela mostra o significado de cada um, e o estado final.
+
+| RF | Desafio | Significado | Estado final |
+|---|---|---|---|
+| RF01 | D1, D2 | Ranking | Existe |
+| RF02 | D1, D2, D4 | Conquistas | Existe (badges) |
+| RF03, RF04, RF05, RF06 | D1 | Cadastrar aluno, conceder XP, consultar perfil, listar alunos | Existem |
+| RF03 | D3 | Recomendação inteligente | Existe, com regra simulada |
+| RF04 | D3 | Assistente educacional | Parcial: resposta simulada, só no serviço |
+| RF05 | D4 | Notificações | Existe, com canal simulado |
+| — | D4 | Eventos de conclusão de atividades | Existe |
+| RF06 | D5 | Receber eventos IoT | Existe, com dispositivo simulado |
+| RF-EVO | D1 | Cursos e recompensas | Cursos: catálogo fixo, sem gestão. Recompensa: XP. Moedas: não existem |
+
+### C4 final
+
+**Contexto:**
+
+```mermaid
+C4Context
+  title Educação Continuada Gamificada — Contexto final
+
+  Person(aluno, "Aluno", "Ganha XP, conclui cursos e consulta ranking, conquistas, recomendações e notificações")
+  Person(equipe, "Equipe (6 devs)", "Desenvolve, opera e monitora")
+
+  System(plataforma, "Plataforma de Educação Continuada Gamificada", "Core, IA, broker MQTT e PostgreSQL")
+
+  System_Ext(dispositivos, "Dispositivos de laboratório", "Presença, início e conclusão; simulados")
+  System_Ext(canal, "Canal de notificação", "E-mail ou push; simulado")
+  System_Ext(esteira, "Jenkins e GitHub Actions", "Build, gates e artefatos")
+  System_Ext(obs, "Prometheus e Grafana", "Métricas, painel e alertas")
+
+  Rel(aluno, plataforma, "Usa", "HTTPS")
+  Rel(dispositivos, plataforma, "Publica eventos", "MQTT, QoS 1")
+  Rel(plataforma, canal, "Notifica", "Assíncrono")
+  Rel(equipe, esteira, "push")
+  Rel(equipe, obs, "Acompanha ASRs e gatilhos")
+  Rel(obs, plataforma, "Coleta métricas", "HTTP")
+```
+
+**Container, com todas as decisões e os elementos de operação:**
+
+```mermaid
+C4Container
+  title Educação Continuada Gamificada — Containers finais
+
+  Person(aluno, "Aluno")
+  Person(equipe, "Equipe")
+  System_Ext(dispositivos, "Dispositivos", "paho-mqtt")
+  System_Ext(canal, "Canal de notificação", "Simulado")
+
+  System_Boundary(plataforma, "Plataforma") {
+    Container(core, "Core API", "Java 21, Spring Boot 4.1 — ADR-001", "Monólito Modular, front-end Vue e gateway MQTT")
+    ContainerDb(db, "PostgreSQL 16", "Banco único", "Dados dos módulos, inclusive outbox e eventos IoT — ADR-004")
+    Container(ia, "Serviço de IA", "Python, FastAPI — ADR-003", "Opcional para o Core")
+    Container(broker, "Mosquitto", "MQTT — ADR-005", "QoS 1 e sessão persistente")
+  }
+
+  System_Boundary(operacao, "Operação — ADR-006") {
+    Container(esteira, "Jenkins e GitHub Actions", "Jenkinsfile e ci.yml", "Gates e artefatos")
+    Container(prom, "Prometheus", "Porta 9091", "Métricas e alertas")
+    Container(graf, "Grafana", "Porta 3000", "Painel dos ASRs")
+  }
+
+  Rel(aluno, core, "Usa", "HTTPS")
+  Rel(dispositivos, broker, "Publica", "MQTT, QoS 1")
+  Rel(core, broker, "Assina", "MQTT")
+  Rel(core, db, "Lê e escreve", "JDBC")
+  Rel(core, ia, "Recomendações; timeout e fallback", "HTTP/JSON")
+  Rel(core, canal, "Notifica depois do commit", "Porta")
+  Rel(prom, core, "Coleta", "HTTP")
+  Rel(graf, prom, "Consulta", "PromQL")
+  Rel(equipe, graf, "Monitora")
+  Rel(equipe, esteira, "push")
+```
+
+**Component do Core, por módulo:**
+
+```mermaid
+C4Component
+  title Core API — Módulos finais
+
+  Container_Boundary(core, "Core API") {
+    Component(web, "web", "Spring MVC", "Controllers: só usam as APIs públicas")
+    Component(prog, "progression", "api + internal", "Alunos, XP e níveis; @Version")
+    Component(rank, "ranking", "api + internal", "Consulta indexada e cache")
+    Component(conq, "conquistas", "Ports & Adapters — ADR-002", "Regras de badge em domínio puro")
+    Component(rec, "recomendacao", "Ports & Adapters — ADR-003", "Cliente com circuit breaker e fallback")
+    Component(cur, "cursos", "api + internal — ADR-004", "Conclusão atômica e outbox")
+    Component(notif, "notificacoes", "Porta do canal — ADR-004", "Consumidor idempotente")
+    Component(iot, "iot", "Ports & Adapters — ADR-005", "Gateway MQTT e idempotência por eventId")
+  }
+
+  Rel(web, prog, "Usa a API")
+  Rel(web, cur, "Usa a API")
+  Rel(rank, prog, "Consulta pontuação")
+  Rel(conq, prog, "Reage a StudentScoreChangedEvent")
+  Rel(rec, prog, "Consulta aluno")
+  Rel(cur, prog, "Concede XP na transação")
+  Rel(notif, cur, "Reage a CursoConcluidoEvent")
+  Rel(iot, cur, "Conclui curso")
+```
+
+O nível Deployment está no [item 8 do Desafio 6](#desafio-6--cicd-e-observabilidade).
+
+### Regra de ouro: cada desafio lido de trás para frente
+
+| Desafio | C4 mostra | ← ADR decide | ← ASRs e RPCs exigem | ← RF e RNF originam | Evidência sustenta |
+|---|---|---|---|---|---|
+| **D1** | Módulos com API pública | ADR-001: Monólito Modular | ASR1–3; RPC1–4 | RF01–RF06; manutenibilidade, desempenho, testabilidade | ArchUnit, falha simulada e, no D6, p95 em PostgreSQL |
+| **D2** | Domínio, porta e adapters | ADR-002: hexagonal só em Conquistas | ASR4–5; RPC1, 5, 6 | RF01, RF02; modificabilidade, testabilidade | Mesmo contrato em 2 adapters, mutação da regra |
+| **D3** | Serviço de IA e protocolo com timeout | ADR-003: serviço independente | ASR6–8; RPC1, 7, 8 | RF03, RF04; tolerância a falhas, deploy independente | Queda e lentidão reais, circuit breaker, contrato em 2 linguagens |
+| **D4** | Sem container novo; sequência síncrono x assíncrono | ADR-004: outbox, sem broker | ASR9–11; RPC9, 10 | Conclusão, RF02, RF05; recuperabilidade, consistência | Queda forçada, carga, 1.601 de 1.601 notificações |
+| **D5** | Dispositivos, broker e gateway | ADR-005: MQTT, sem segundo broker | ASR12–14; RPC11–13 | RF06; conectividade intermitente, interoperabilidade | Broker real, reenvio, Core e broker reiniciados |
+| **D6** | Implantação e operação | ADR-006: esteira única e métricas | ASR15–17; RPC14–16 | Todos os RFs; observabilidade, recuperabilidade | Comandos dos estágios, queda da IA observada, p95 medido |
+
+**O que não fechava e foi corrigido nesta conferência:**
+
+| Problema | Correção |
+|---|---|
+| ASR2 "parcial", sem p95 em PostgreSQL | Medida no D6: atendida para top 100 e posição, com o limite da página aleatória registrado |
+| ADR-001 e D1 citavam a observabilidade como planejada | ADR-001 e item 9.6 do D1 passam a apontar para o D6, e o compose próprio foi registrado como mudança |
+| D3 dizia que Prometheus e Grafana seguiam planejados | Texto atualizado, apontando para o D6 |
+| ADR-004 e D4 diziam que `DEAD` não gerava alerta | Alerta adicionado no D6, ainda sem envio de notificação |
+| RFs com número repetido entre desafios | Tabela de numeração acima |
+
+### Microsoluções e evidências
+
+| Desafio | Microsolução | Evidências |
+|---|---|---|
+| **D1** | [`progression`](../../src/main/java/org/example/ac1devops/progression/), [`ranking`](../../src/main/java/org/example/ac1devops/ranking/), [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) | [`archunit-violacao.txt`](evidencias/archunit-violacao.txt), [`jacoco-antes.csv`](evidencias/jacoco-antes.csv), [`jacoco-depois.csv`](evidencias/jacoco-depois.csv), prints [`d1-ci-*`](evidencias/img/d1-ci-verde.png) |
+| **D2** | [`conquistas`](../../src/main/java/org/example/ac1devops/conquistas/), [`BadgeAwardContract`](../../src/test/java/org/example/ac1devops/conquistas/internal/domain/BadgeAwardContract.java), [`concorrencia_xp.py`](../../labs/desafio-2/concorrencia_xp.py) | [`d2-archunit-violacao.txt`](evidencias/d2-archunit-violacao.txt), [`d2-mutacao-regra.txt`](evidencias/d2-mutacao-regra.txt), [`d2-concorrencia.txt`](evidencias/d2-concorrencia.txt), prints [`d2-ci-*`](evidencias/img/d2-ci-verde.png) |
+| **D3** | [`ia-service`](../../labs/desafio-3/ia-service/), [`recomendacao`](../../src/main/java/org/example/ac1devops/recomendacao/) | [`d3-roteiro.txt`](evidencias/d3-roteiro.txt), [`d3-falhas-simuladas.txt`](evidencias/d3-falhas-simuladas.txt), prints [`d3-*`](evidencias/img/d3-01-ia-health.png) |
+| **D4** | [`cursos`](../../src/main/java/org/example/ac1devops/cursos/), [`notificacoes`](../../src/main/java/org/example/ac1devops/notificacoes/), [`carga_conclusoes.py`](../../labs/desafio-4/carga_conclusoes.py) | [`d4-postgres.txt`](evidencias/d4-postgres.txt), [`d4-falhas-simuladas.txt`](evidencias/d4-falhas-simuladas.txt), prints [`d4-*`](evidencias/img/d4-01-conclusao-canal-fora.png) |
+| **D5** | [`iot`](../../src/main/java/org/example/ac1devops/iot/), [`labs/desafio-5`](../../labs/desafio-5/) | [`d5-fluxo-real.txt`](evidencias/d5-fluxo-real.txt), prints [`d5-*`](evidencias/img/d5-01-eventos-normais.png) |
+| **D6** | [`Jenkinsfile`](../../Jenkinsfile), [`observabilidade`](../../observabilidade/), [`labs/desafio-6`](../../labs/desafio-6/) | [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt); prints `d6-*` pendentes |
+
+As evidências da AC1 (ciclo RED/GREEN/BLUE, Docker, front-end) ficam em [`evidencias/`](../../evidencias/), na raiz, separadas de propósito.
+
+### Histórico do CI
+
+GitHub Actions, branch `feature/b1-architecture-lab`: 5 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`), #4 (`3c3cce2`) e #5 (`49ab6b2`).
 
 ![Lista com os 5 runs verdes da branch](evidencias/img/b1-ci-historico.png)
 
 ## Equipe e links
 
-**Grupo 10.** Contribuições registradas no [README do projeto](../../README.md#créditos):
-`viniciusalegre20`, `bruno-cO70`, `LeovLuz` e `GuilhermDias`.
+**Grupo 10** — preencher nomes e RAs:
+
+| Nome | RA | GitHub |
+|---|---|---|
+| `[NOME]` | `[RA]` | `bruno-cO70` |
+| `[NOME]` | `[RA]` | `viniciusalegre20` |
+| `[NOME]` | `[RA]` | `LeovLuz` |
+| `[NOME]` | `[RA]` | `GuilhermDias` |
+| `[NOME]` | `[RA]` | `[USUÁRIO]` |
+| `[NOME]` | `[RA]` | `[USUÁRIO]` |
 
 | Artefato | Caminho |
 |---|---|
 | Repositório | <https://github.com/GuilhermDias/AC1-Devops> |
-| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md), [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md), [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) |
-| Diagramas | Desafio 1: item 8 (C4) e item 9.8 (dependências antes/depois). Desafio 2: item 8 (Component). Desafio 3: item 8 (Container). Desafio 4: item 8 (Container e sequência). Desafio 5: item 8 (Container e sequência) |
-| Fachadas dos módulos | [`StudentProgressionApi`](../../src/main/java/org/example/ac1devops/progression/api/StudentProgressionApi.java), [`RankingApi`](../../src/main/java/org/example/ac1devops/ranking/api/RankingApi.java), [`ConquistasApi`](../../src/main/java/org/example/ac1devops/conquistas/api/ConquistasApi.java), [`RecomendacaoApi`](../../src/main/java/org/example/ac1devops/recomendacao/api/RecomendacaoApi.java), [`CursosApi`](../../src/main/java/org/example/ac1devops/cursos/api/CursosApi.java), [`NotificacoesApi`](../../src/main/java/org/example/ac1devops/notificacoes/api/NotificacoesApi.java), [`IotApi`](../../src/main/java/org/example/ac1devops/iot/api/IotApi.java) |
+| Branch da entrega | `feature/b1-architecture-lab` |
+| ADRs | [ADR-001](adr/ADR-001-estilo-arquitetural-core.md), [ADR-002](adr/ADR-002-ports-and-adapters-em-conquistas.md), [ADR-003](adr/ADR-003-servico-python-de-ia.md), [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md), [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md), [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) |
+| Esteira | [`Jenkinsfile`](../../Jenkinsfile), [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
+| Observabilidade | [`observabilidade/`](../../observabilidade/) |
+| Laboratórios | [`labs/`](../../labs/) |
 | Regras de arquitetura | [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java) |
-| Workflow de CI | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
-| Serviço de IA | [`labs/desafio-3/ia-service`](../../labs/desafio-3/ia-service/) |
-| Simulador e broker IoT | [`labs/desafio-5`](../../labs/desafio-5/) |
-| Relatório de cobertura | Artifact `jacoco-report` de cada run do CI; local em `target/site/jacoco/index.html`; CSVs em [`evidencias/`](evidencias/) |
-| Prova de violação barrada | [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt) |
+| Relatório de cobertura | Local em `target/site/jacoco/index.html`; artefato de cada run do CI |

@@ -65,8 +65,8 @@ Adotar o **Monólito Modular (B)** no Core:
    gatilhos G1–G5 (Desafio 1, item 5 do README) forem observados de forma sustentada, depois de aplicados
    índice, paginação e cache.
 6. Os gatilhos são medidos, não estimados: o Core passa a expor métricas (Spring Boot Actuator +
-   Micrometer em `/actuator/prometheus`), coletadas pelo Prometheus e exibidas no Grafana, como
-   containers do mesmo `docker-compose.yml` (planejado, AC2).
+   Micrometer em `/actuator/prometheus`), coletadas pelo Prometheus e exibidas no Grafana. Entregue no
+   [ADR-006](ADR-006-esteira-unica-e-observabilidade.md), em um compose próprio, e não no principal como previsto aqui.
 
 ## Consequências e trade-offs
 

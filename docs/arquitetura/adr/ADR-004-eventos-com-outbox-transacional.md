@@ -85,6 +85,6 @@ conclusão do curso não muda.
 - A varredura consulta o banco a cada 5 s, e a tabela `course_outbox_events` cresce sem limpeza.
 - A entrega é ao menos uma vez: uma queda entre o envio e a gravação pode repetir uma notificação.
 - `lease` (60 s) precisa ser maior que a entrega mais demorada, senão o evento pode ser enviado em paralelo.
-- Eventos `DEAD` dependem de alguém consultá-los: não há alerta, porque a observabilidade não foi implementada.
+- Eventos `DEAD` dependem de reenvio manual. O [ADR-006](ADR-006-esteira-unica-e-observabilidade.md) acrescentou um alerta no Prometheus, sem envio de notificação.
 - Os endpoints de eventos e reenvio não têm autenticação, como todo o Core hoje.
 - A reserva por update condicional foi pensada para várias réplicas, mas só foi testada com uma.

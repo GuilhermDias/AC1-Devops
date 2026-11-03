@@ -30,7 +30,8 @@ Tabela de faixas de XP:
   próprio Spring Boot
 - Springdoc OpenAPI / Swagger UI
 - Testes: JUnit 5, AssertJ, Mockito, ArchUnit (1.4.1), JaCoCo (0.8.13)
-- CI: GitHub Actions (`.github/workflows/ci.yml`)
+- CI: GitHub Actions (`.github/workflows/ci.yml`) e Jenkins ([`Jenkinsfile`](Jenkinsfile))
+- Observabilidade: Actuator, Micrometer, Prometheus e Grafana ([`observabilidade/`](observabilidade/))
 
 ## Como rodar
 
@@ -49,6 +50,8 @@ docker compose up -d --build
 | Postgres | `localhost:5433` (banco `ac1devops_db`) | `postgres` / `postgres` |
 | Serviço de IA | `http://localhost:8000` (`/health`, `/docs`) | — |
 | Broker MQTT (Mosquitto) | `localhost:1883` | Sem autenticação: só para o laboratório |
+| Métricas do Core | `http://localhost:8080/actuator/prometheus` | — |
+| Prometheus e Grafana (`docker compose -f observabilidade/docker-compose.yml up -d`) | `http://localhost:9091` e `http://localhost:3000/d/ac1devops` | Grafana: leitura sem login |
 
 Para conectar no banco pelo pgAdmin, cadastre um servidor apontando para o host **`postgres`**
 (nome do serviço na rede do compose), porta `5432` — não `localhost`, que dentro do container
@@ -107,10 +110,8 @@ total já salvo (um único `receiveXp` com o total acumulado recria a mesma sequ
 já que a regra depende só do total de XP, não do caminho percorrido), aplica a nova operação, e
 persiste de volta só os eventos novos.
 
-**Arquitetura — [Estudo de Caso: Educação Continuada Gamificada](docs/arquitetura/README.md)**
-(Desafio 1 + AC2 ExB1): RF, RNF, ASR, RPC e trade-offs, C4 (Contexto, Container e Component),
-rastreabilidade e evidências do mini-lab de modularização e de QA/CI;
-decisão registrada no [ADR-001](docs/arquitetura/adr/ADR-001-estilo-arquitetural-core.md). O CI
+**Arquitetura — [Exercício B1, Architecture Lab](docs/arquitetura/README.md)**: os 6 desafios com RF, RNF, ASR, RPC, trade-offs,
+ADRs (em [`docs/arquitetura/adr/`](docs/arquitetura/adr/)), C4 e evidências, além da matriz de ASRs e da síntese para a PoC da AF. O CI
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda `./mvnw verify` (testes, ArchUnit e
 piso de cobertura JaCoCo) em todo push e Pull Request.
 

@@ -1,0 +1,86 @@
+# Desafio 6: PostgreSQL 16 descartavel na porta 55432, Core em jar, servico de IA, Mosquitto, Prometheus e Grafana
+# 2026-11-03, execucao unica, tudo na mesma maquina. Commit 2cf071b.
+
+### Saude: {"groups":["liveness","readiness"],"status":"UP"}
+### Endpoints do actuator: self,info,prometheus,health,health-path
+### D1: 100.000 alunos em PostgreSQL e carga no ranking
+alunos no ranking: 100000
+4084 requisicoes em 40 s, 10 threads, 0 erros 5xx
+pagina: mediana 138 ms, p95 316 ms
+posicao: mediana 26 ms, p95 74 ms
+p95 no Prometheus (ranking_query_seconds, ultimo minuto):
+  {operation=page} = 0.3229
+  {operation=position} = 0.0605
+  {operation=top} = NaN
+p95 HTTP no Prometheus:
+  {uri=/ranking} = 0.3261
+  {uri=/ranking/students/{id}} = 0.0643
+throughput HTTP:
+  {uri=/ranking} = 36.6982
+  {uri=/ranking/students/{id}} = 36.6828
+pool:
+  {pool=HikariPool-1} = 0
+### D3: IA no ar e depois fora do ar
+antes de derrubar:
+  {outcome=ia} = 20
+depois de derrubar:
+  {outcome=ia} = 20
+  {outcome=fallback} = 112
+taxa de fallback:
+  {} = 0.9078
+alertas:
+  FallbackDaIaAlto = firing
+### D4 e D2: conclusoes
+40 conclusoes em 2.9 s (14/s), 5 threads
+status (0 = sem resposta em 60 s): {201: 40}
+resposta: mediana 204 ms, p95 936 ms
+notificacoes: 40 de 40, 3.1 s depois do inicio
+outbox:
+  {status=DEAD} = 0
+  {status=DELIVERED} = 40
+  {status=PENDING} = 0
+badges:
+  {} = 25
+### D5: eventos IoT
+confirmados pelo broker (QoS 1): 3
+confirmados pelo broker (QoS 1): 2
+confirmados pelo broker (QoS 1): 3
+  {result=ACCEPTED} = 4
+  {result=DUPLICATE} = 1
+  {result=INVALID} = 3
+### Operacao
+alvos:
+  core http://host.docker.internal:8080/actuator/prometheus = up
+regras:
+  RankingP95AcimaDaMeta = ok/inactive
+  FallbackDaIaAlto = ok/firing
+  EventosComTentativasEsgotadas = ok/inactive
+  EventosPendentesAcumulados = ok/inactive
+  CoreForaDoAr = ok/inactive
+grafana: ok
+datasource provisionado: http://prometheus:9090
+dashboard: uid ac1devops, 10 paineis
+  painel 1: success, series=1
+  painel 2: success, series=6
+  painel 3: success, series=6
+  painel 4: success, series=1
+  painel 5: success, series=3
+  painel 6: success, series=1
+  painel 7: success, series=3
+  painel 8: success, series=3
+  painel 9: success, series=1
+  painel 10: success, series=1
+  painel 10: success, series=1
+  painel 10: success, series=1
+
+### Segunda medicao, incluindo o top 100 na carga (10 threads e depois 3 threads)
+alunos no ranking: 100000
+4704 requisicoes em 40 s, 10 threads, 0 erros 5xx
+top 100: mediana 48 ms, p95 114 ms
+pagina aleatoria: mediana 144 ms, p95 317 ms
+posicao: mediana 28 ms, p95 79 ms
+alunos no ranking: 100000
+2259 requisicoes em 30 s, 3 threads, 0 erros 5xx
+top 100: mediana 25 ms, p95 44 ms
+pagina aleatoria: mediana 66 ms, p95 165 ms
+posicao: mediana 15 ms, p95 32 ms
