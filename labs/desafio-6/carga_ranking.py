@@ -1,4 +1,4 @@
-"""Carga no ranking: mistura paginas e posicao de alunos e mede a latencia vista pelo cliente.
+"""Carga no ranking: mistura top 100, paginas aleatorias e posicao de alunos, e mede a latencia no cliente.
 
 Uso: py carga_ranking.py [segundos] [threads]
 """
@@ -39,23 +39,27 @@ print(f"alunos no ranking: {dados['totalElements']}")
 
 
 def trabalhador(_):
-    pagina, posicao, erros = [], [], 0
+    top, pagina, posicao, erros = [], [], [], 0
     limite = time.monotonic() + SEGUNDOS
     while time.monotonic() < limite:
+        s0, ms0, _ = chamar("/ranking?page=0&size=100")
         s1, ms1, _ = chamar(f"/ranking?page={random.randrange(total_paginas)}&size=20")
         s2, ms2, _ = chamar(f"/ranking/students/{random.choice(ids)}")
+        top.append(ms0)
         pagina.append(ms1)
         posicao.append(ms2)
-        erros += (s1 >= 500) + (s2 >= 500)
-    return pagina, posicao, erros
+        erros += (s0 >= 500) + (s1 >= 500) + (s2 >= 500)
+    return top, pagina, posicao, erros
 
 
 with cf.ThreadPoolExecutor(THREADS) as pool:
     resultados = list(pool.map(trabalhador, range(THREADS)))
 
-paginas = [ms for r in resultados for ms in r[0]]
-posicoes = [ms for r in resultados for ms in r[1]]
-erros = sum(r[2] for r in resultados)
-print(f"{len(paginas) + len(posicoes)} requisicoes em {SEGUNDOS} s, {THREADS} threads, {erros} erros 5xx")
-print(f"pagina: mediana {statistics.median(paginas):.0f} ms, p95 {p95(paginas):.0f} ms")
+tops = [ms for r in resultados for ms in r[0]]
+paginas = [ms for r in resultados for ms in r[1]]
+posicoes = [ms for r in resultados for ms in r[2]]
+erros = sum(r[3] for r in resultados)
+print(f"{len(tops) + len(paginas) + len(posicoes)} requisicoes em {SEGUNDOS} s, {THREADS} threads, {erros} erros 5xx")
+print(f"top 100: mediana {statistics.median(tops):.0f} ms, p95 {p95(tops):.0f} ms")
+print(f"pagina aleatoria: mediana {statistics.median(paginas):.0f} ms, p95 {p95(paginas):.0f} ms")
 print(f"posicao: mediana {statistics.median(posicoes):.0f} ms, p95 {p95(posicoes):.0f} ms")
