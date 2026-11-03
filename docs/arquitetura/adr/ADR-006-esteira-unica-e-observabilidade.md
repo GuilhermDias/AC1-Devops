@@ -39,7 +39,7 @@ Adotar a **alternativa B**:
 
 1. Um [`Jenkinsfile`](../../../Jenkinsfile) na raiz, com um estágio por gate. Qualquer falha interrompe o build, e o jar só é arquivado se todos
    passarem.
-2. **Bloqueiam o artefato:** testes do Core, ArchUnit, piso de 90% do JaCoCo e pytest do serviço de IA e do simulador.
+2. **Bloqueiam o artefato:** testes do Core, ArchUnit, gate de 100% do JaCoCo, exigido pela AC2 e sem excluir classes, e pytest do serviço de IA e do simulador.
 3. O GitHub Actions continua como está, com jobs separados: verifica cada push, inclusive sem o Jenkins local.
 4. O Core expõe só `health`, `info` e `prometheus` no Actuator, com as métricas de cada ASR de execução. O domínio continua sem dependência de
    métricas, verificado pelo ArchUnit: elas ficam na aplicação e nos adapters.

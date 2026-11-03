@@ -166,9 +166,8 @@ nível, consultar aluno e tratamento de 404): [`evidencias/FRONTEND.md`](evidenc
 
 ## Cobertura final
 
-100% de instruções, branches, linhas e métodos em todas as classes do projeto (domínio, entity,
-repository, service, controller, DTOs, config) — `Ac1DevOpsApplication` (bootstrap do Spring
-Boot) é excluído da métrica por não ser código de negócio. Detalhes em
+100% de instruções, branches, linhas e métodos em todas as classes do projeto, **sem exclusões**, verificado
+pelo gate do JaCoCo, que quebra o build abaixo disso. O histórico da AC1 está em
 [`evidencias/cobertura-jacoco.md`](evidencias/cobertura-jacoco.md).
 
 ## Créditos

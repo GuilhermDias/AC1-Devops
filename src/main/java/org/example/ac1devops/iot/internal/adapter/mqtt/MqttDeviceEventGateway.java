@@ -14,6 +14,7 @@ import org.example.ac1devops.iot.internal.domain.InvalidDeviceEventException;
 import org.example.ac1devops.iot.internal.domain.ProcessingResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -40,10 +41,15 @@ public class MqttDeviceEventGateway implements MqttCallback, SmartLifecycle {
     private boolean running;
     private boolean brokerAvailable = true;
 
+    @Autowired
     public MqttDeviceEventGateway(MqttProperties properties, DeviceEventProcessor processor) throws MqttException {
+        this(properties, processor, new MqttClient(properties.url(), properties.clientId(), new MemoryPersistence()));
+    }
+
+    MqttDeviceEventGateway(MqttProperties properties, DeviceEventProcessor processor, MqttClient client) {
         this.properties = properties;
         this.processor = processor;
-        this.client = new MqttClient(properties.url(), properties.clientId(), new MemoryPersistence());
+        this.client = client;
         this.client.setCallback(this);
     }
 

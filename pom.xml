@@ -141,14 +141,6 @@
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.13</version>
-                <configuration>
-                    <!-- Classe de bootstrap do Spring Boot (main()): não é código de domínio,
-                         testar main() diretamente não agrega valor. Prática padrão em projetos
-                         Spring para não poluir a métrica de cobertura com a classe de entrada. -->
-                    <excludes>
-                        <exclude>**/Ac1DevOpsApplication.class</exclude>
-                    </excludes>
-                </configuration>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -163,8 +155,8 @@
                             <goal>report</goal>
                         </goals>
                     </execution>
-                    <!-- Piso de cobertura verificado no 'mvn verify' (local e CI): queda abaixo
-                         de 90% de linhas ou branches quebra o build. -->
+                    <!-- Exigencia da AC2, verificada no 'mvn verify' (local e CI): 100% de linhas e
+                         branches, sem excluir classes. Qualquer queda quebra o build. -->
                     <execution>
                         <id>check</id>
                         <goals>
@@ -178,12 +170,12 @@
                                         <limit>
                                             <counter>LINE</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.90</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                         <limit>
                                             <counter>BRANCH</counter>
                                             <value>COVEREDRATIO</value>
-                                            <minimum>0.90</minimum>
+                                            <minimum>1.00</minimum>
                                         </limit>
                                     </limits>
                                 </rule>

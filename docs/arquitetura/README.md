@@ -105,7 +105,7 @@ Interfaces de apoio que já existem: front-end Vue 3 em `src/main/resources/stat
 | **Manutenibilidade** | S (Supportability) | Com Ranking, Conquistas, Cursos e Recompensas entrando, uma organização só por camada técnica espalharia cada funcionalidade por todos os pacotes e permitiria qualquer import. | 0 violações das regras de `ModularArchitectureTest`; um novo módulo não exige alterar classes de `progression.internal`. | Existe: 8 regras ArchUnit verdes no `mvn verify`. |
 | **Desempenho** | P (Performance) | O risco é de consulta, não de processo: `GET /students` faz `findAll()` sem paginação e carrega `levelUpEvents` em modo lazy (N+1). Um Ranking ingênuo em cima disso degradaria. | Ranking (top 100 e posição do aluno) com **p95 ≤ 300 ms** e **base de 100.000 alunos**; `POST /students/{id}/xp` com p95 ≤ 200 ms. | Ranking com 100.000 alunos no H2 de teste: página 0 em **15 ms**, última página em **49 ms**, posição de um aluno em **52 ms** (item 9.4). É medição única, não p95: falta medir em PostgreSQL sob carga HTTP. |
 | **Escalabilidade** | P (Performance: capacidade) | Ranking é *read-heavy* e cresce mais que o resto. Monólito *stateless* escala horizontalmente; o ranking pode vir de cache. | Atender 100.000 usuários escalando réplicas do Core sem mudar código; nenhuma sessão em memória. | Core *stateless* (sem sessão HTTP); 1 réplica no `docker-compose.yml`. O cache do top N é por instância: com várias réplicas, trocar por um cache compartilhado (ex.: Redis), sem mudar o código do módulo. |
-| **Testabilidade** | S (Supportability) | Domínio em POJO e regra de fronteira verificável por teste. | **Cobertura de 100%** de linhas e branches; piso de **90%** que quebra o build (`jacoco:check`). | Existe: 100% instruções/linhas/branches/métodos; piso de 90% no `pom.xml`. |
+| **Testabilidade** | S (Supportability) | Domínio em POJO e regra de fronteira verificável por teste. | **Cobertura de 100%** de linhas e branches, exigência da AC2, com gate que quebra o build (`jacoco:check`). | Existe: 100% instruções/linhas/branches/métodos; gate de 100% no `pom.xml`, sem excluir classes. |
 | **Observabilidade** | S (Supportability: serviceability) | Sem métricas não há como saber se os gatilhos de extração do Ranking (item 5) foram atingidos — a decisão depende disso. | Latência p95, taxa de erro e throughput por endpoint expostos em formato Prometheus e visualizados no Grafana; alerta se p95 do ranking > 300 ms. | **Não existe:** sem Actuator, Micrometer, Prometheus ou Grafana no projeto. Ver item 9.6. |
 | **Complexidade operacional** | + (restrição de implementação e operação) | Hoje: 1 jar, 1 imagem Docker, 1 PostgreSQL, 1 `docker-compose.yml`, 1 workflow de CI. Serviços separados trariam múltiplos pipelines, contratos versionados, rede e dados distribuídos. | Continuar com **1 artefato, 1 banco e 1 pipeline**; ambiente completo sobe com um único `docker compose up`. | Atendido. |
 
@@ -348,9 +348,9 @@ teste só falha acima de 1.000 ms, portanto **não comprova o p95 ≤ 300 ms da 
 
 #### 9.5 Cobertura de testes
 
-Situação atual no item 9.1: **100%** de linhas, branches, instruções e métodos, com
-`Ac1DevOpsApplication` excluída da métrica. O piso de 90% de linhas e branches é verificado por
-`jacoco:check` no `verify`. O histórico antes/depois da modularização está no item 9.9.
+A AC2 exige **100% de linhas e branches**. O gate do `jacoco:check` no `verify` está nesse valor, **sem excluir nenhuma classe**: até o `main` é
+executado de verdade, por `Ac1DevOpsApplicationMainTest`. Resultado do último build: linhas 700/700, branches 86/86, instruções 3326/3326 e métodos 278/278. O
+histórico antes/depois da modularização está no item 9.9.
 
 #### 9.6 Observabilidade
 
@@ -559,8 +559,8 @@ anterior no repositório).
    [`evidencias/archunit-violacao.txt`](evidencias/archunit-violacao.txt)).
 3. **O contrato externo também é protegido.** `StudentEndpointIntegrationTest` falha se a
    refatoração (ou uma futura extração do Ranking) mudar status/JSON de `/students`.
-4. **Qualidade não regride em silêncio.** `jacoco:check` falha o build abaixo de 90% de linhas ou
-   branches; o relatório fica anexado ao run para auditoria.
+4. **Qualidade não regride em silêncio.** `jacoco:check` falha o build abaixo de 100% de linhas ou
+   branches (o piso era de 90% no Desafio 1); o relatório fica anexado ao run para auditoria.
 5. **Merge só com CI verde.** Recomendado ativar em *Settings → Branches → Branch protection
    rules* da `main`: "Require a pull request before merging" + "Require status checks to pass"
    marcando o check `Build, testes, ArchUnit e cobertura`. Assim a decisão do ADR-001 não pode
@@ -1660,7 +1660,7 @@ Este desafio não cria funcionalidade: atua sobre **todos os RFs**, na operaçã
 | RNF | FURPS+ | Meta mensurável | Resultado |
 |---|---|---|---|
 | **Observabilidade** | S (Supportability: serviceability) | Latência, 5xx, throughput e uma métrica por ASR de execução em um painel | Atendida: 10 painéis, todos com dados no teste |
-| **Testabilidade** | S (Supportability) | Todos os gates automatizados | Atendida: 161 testes no Core, 12 e 9 nos componentes Python |
+| **Testabilidade** | S (Supportability) | Todos os gates automatizados | Atendida: 168 testes no Core, 12 e 9 nos componentes Python |
 | **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida: build #1 no Jenkins com todos os estágios verdes |
 | **Deploy independente** | + (restrição de implantação) | Artefatos separados, verificados por componente | Atendida: jar e imagem separados; sem publicação automática |
 | **Recuperabilidade** | R (Reliability) | Ambiente de observação recriado com um comando | Atendida: compose com tudo versionado, recriado do zero no teste |
@@ -1698,7 +1698,7 @@ no [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md).
 |---|---|---|
 | Compilação e testes do Core | RFs e contratos | **Sim** |
 | ArchUnit | ASR1, ASR3, ASR5, ASR14 | **Sim**, e roda primeiro, por ser o mais rápido |
-| JaCoCo, piso de 90% de linhas e branches | ASR3 | **Sim** |
+| JaCoCo, gate de 100% de linhas e branches, sem exclusões | ASR3 | **Sim** |
 | pytest do serviço de IA | ASR7, ASR8 | **Sim** |
 | pytest do simulador | ASR12 | **Sim** |
 | Alertas do Prometheus | ASRs em execução | Não: são da operação, não do build |
@@ -1788,7 +1788,8 @@ C4Deployment
 | 4 | Fluxo real, com falha provocada | Roteiro abaixo | Tabela abaixo e [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt). |
 | 5 | Esteira no Jenkins | Job `ac1devops-b1`, passo a passo abaixo | **Build #1 verde em 5 min 15 s; 182 testes, 0 falhas**; jar e relatório do JaCoCo arquivados. |
 | 6 | GitHub Actions | Push na branch | Run #7 (`9552ea7`): **Success, 3 jobs verdes**, em 1m 52s. |
-| 7 | Build completo | `mvnw.cmd -B clean verify` | **161 testes**, 0 falhas. Cobertura: linhas 693/695 (99,7%) e branches 86/86. |
+| 7 | Build completo | `mvnw.cmd -B clean verify` | **168 testes**, 0 falhas. **100% de cobertura, sem exclusões**: linhas 700/700, branches 86/86, instruções 3326/3326 e métodos 278/278. |
+| 8 | O gate de cobertura funciona | `mvnw.cmd clean test -Dtest=OutboxRelayTest`, seguido de `mvnw.cmd jacoco:check@check` | Com um único teste, o build **falha**: `lines covered ratio is 0.02, but expected minimum is 1.00`. Com a suíte inteira, passa. |
 
 #### Resultados do fluxo real
 
@@ -1831,7 +1832,7 @@ Execução do Bruno em 2026-11-03, no Jenkins 2.582 local e com o roteiro abaixo
 | Alerta | `FallbackDaIaAlto` **FIRING**; os outros 4 inativos | [`d6-05b`](evidencias/img/d6-05b-alerta.png) |
 | GitHub Actions | Run #7: 3 jobs verdes | [`d6-06`](evidencias/img/d6-06-ci-verde.png) |
 
-Os 182 testes do Jenkins somam os 161 do Core, os 12 do serviço de IA e os 9 do simulador. Essa execução usou banco H2 e poucos dados: os tempos do painel não
+Os 182 testes do Jenkins somam os 161 do Core, os 12 do serviço de IA e os 9 do simulador. Esse build é anterior à elevação do gate para 100%, que acrescentou 7 testes ao Core, verificados no build completo local. Essa execução usou banco H2 e poucos dados: os tempos do painel não
 substituem a medição com 100.000 alunos.
 
 | Esteira no Jenkins | Resultado dos testes |
