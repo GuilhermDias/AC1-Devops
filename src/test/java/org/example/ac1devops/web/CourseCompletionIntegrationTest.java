@@ -21,6 +21,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.example.ac1devops.cursos.api.CursoConcluidoEvent;
 import org.example.ac1devops.cursos.internal.persistence.CourseCompletionRepository;
 import org.example.ac1devops.cursos.internal.persistence.OutboxEventEntity;
@@ -29,6 +30,7 @@ import org.example.ac1devops.notificacoes.internal.domain.NotificationChannel;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
@@ -46,6 +48,7 @@ import tools.jackson.databind.ObjectMapper;
         "cursos.outbox.base-backoff=50ms",
         "cursos.outbox.max-attempts=3"
 })
+@Timeout(60)
 class CourseCompletionIntegrationTest {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(10);
@@ -159,7 +162,8 @@ class CourseCompletionIntegrationTest {
     void consumidorLentoNaoAtrasaAResposta() throws Exception {
         CountDownLatch release = new CountDownLatch(1);
         doAnswer(invocation -> {
-            release.await();
+            // Espera limitada: se a chamada voltar a ser sincrona, o teste falha em vez de travar o build.
+            release.await(5, TimeUnit.SECONDS);
             return null;
         }).when(channel).send(any());
         long id = createStudent();
@@ -182,6 +186,19 @@ class CourseCompletionIntegrationTest {
 
         await().atMost(TIMEOUT).until(() -> "DELIVERED".equals(eventOf(id).path("status").asText()));
         assertThat(notificationsOf(id).size()).isEqualTo(1);
+    }
+
+    @Test
+    void deveDrenarAcumuladoMaiorQueUmLoteDaVarredura() throws Exception {
+        long id = createStudent();
+        List<OutboxEventEntity> backlog = new ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            backlog.add(new OutboxEventEntity(id, "observabilidade", 200, Instant.now()));
+        }
+
+        outbox.saveAll(backlog);
+
+        await().atMost(TIMEOUT).until(() -> notificationsOf(id).size() == 60);
     }
 
     @Test

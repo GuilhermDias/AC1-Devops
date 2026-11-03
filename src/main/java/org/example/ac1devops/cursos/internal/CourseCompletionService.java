@@ -36,7 +36,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class CourseCompletionService implements CursosApi {
 
-    private static final int MAX_ATTEMPTS = 15;
+    static final int MAX_ATTEMPTS = 15;
     private static final long BACKOFF_STEP_MILLIS = 20;
 
     private final CourseCompletionRepository completions;

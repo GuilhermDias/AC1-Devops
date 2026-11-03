@@ -18,8 +18,9 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 /**
  * Entrega os eventos da outbox fora da requisicao. A primeira tentativa sai logo depois do commit; a
- * varredura periodica cuida das novas tentativas e do que ficou pendente se o processo caiu. Os
- * consumidores rodam nesta thread, entao uma excecao deles chega aqui e agenda outra tentativa.
+ * varredura periodica cuida das novas tentativas e do que ficou pendente se o processo caiu, e continua
+ * enquanto houver lote cheio, para drenar o acumulado de uma queda. Cada tentativa adia o evento, entao
+ * a varredura termina mesmo com o consumidor fora do ar. Os consumidores rodam nesta thread, entao uma excecao deles chega aqui e agenda outra tentativa.
  */
 @Component
 public class OutboxRelay {
@@ -47,8 +48,11 @@ public class OutboxRelay {
 
     @Scheduled(fixedDelayString = "${cursos.outbox.sweep-interval-ms:5000}")
     public void sweep() {
-        List<Long> dueIds = outbox.findDueIds(Instant.now(), PageRequest.of(0, SWEEP_BATCH_SIZE));
-        dueIds.forEach(this::tryDeliver);
+        List<Long> dueIds;
+        do {
+            dueIds = outbox.findDueIds(Instant.now(), PageRequest.of(0, SWEEP_BATCH_SIZE));
+            dueIds.forEach(this::tryDeliver);
+        } while (dueIds.size() == SWEEP_BATCH_SIZE);
     }
 
     private void tryDeliver(Long eventId) {

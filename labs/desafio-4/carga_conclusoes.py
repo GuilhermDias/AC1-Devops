@@ -1,6 +1,7 @@
 """Carga no fluxo de conclusao: mede a resposta e quanto a entrega demora depois.
 
-Uso: python carga_conclusoes.py [alunos] [threads] [url-do-core]
+Uso: python carga_conclusoes.py [alunos] [threads] [--sem-espera]
+Com --sem-espera, nao aguarda a entrega: serve para medir a resposta com o canal fora do ar.
 """
 import concurrent.futures as cf
 import json
@@ -10,9 +11,11 @@ import time
 import urllib.error
 import urllib.request
 
-STUDENTS = int(sys.argv[1]) if len(sys.argv) > 1 else 100
-THREADS = int(sys.argv[2]) if len(sys.argv) > 2 else 20
-BASE = sys.argv[3] if len(sys.argv) > 3 else "http://localhost:8080"
+ARGS = [arg for arg in sys.argv[1:] if not arg.startswith("--")]
+STUDENTS = int(ARGS[0]) if len(ARGS) > 0 else 100
+THREADS = int(ARGS[1]) if len(ARGS) > 1 else 20
+WAIT = "--sem-espera" not in sys.argv
+BASE = "http://localhost:8080"
 COURSES = ["fundamentos-git", "logica-programacao", "testes-unitarios", "docker-essencial",
            "ci-cd", "arquitetura-software", "observabilidade", "sistemas-distribuidos"]
 
@@ -50,11 +53,9 @@ print(f"{len(jobs)} conclusoes em {elapsed:.1f} s ({len(jobs) / elapsed:.0f}/s),
 print(f"status: {statuses}")
 print(f"resposta: mediana {statistics.median(times):.0f} ms, p95 {times[int(len(times) * 0.95)]:.0f} ms")
 
-while True:
-    pending = [e for e in call("GET", "/cursos/eventos")[1] if e["status"] == "PENDING"]
-    if not pending:
-        break
-    time.sleep(0.2)
-print(f"ultimos 100 eventos entregues {time.perf_counter() - start:.1f} s depois do inicio")
-delivered = sum(len(call("GET", f"/notificacoes/students/{s}")[1]) for s in students)
-print(f"notificacoes: {delivered} de {len(jobs)}")
+if WAIT:
+    deadline = time.perf_counter() + 180
+    delivered = 0
+    while delivered < len(jobs) and time.perf_counter() < deadline:
+        delivered = sum(len(call("GET", f"/notificacoes/students/{s}")[1]) for s in students)
+    print(f"notificacoes: {delivered} de {len(jobs)}, {time.perf_counter() - start:.1f} s depois do inicio")
