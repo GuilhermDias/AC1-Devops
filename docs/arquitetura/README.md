@@ -64,9 +64,9 @@ A numeração é global: novos desafios continuam a partir da ASR15.
 | **ASR9** — Conclusão independente dos consumidores | Desafio 4 | Tolerância a falhas, Disponibilidade, Latência e Desacoplamento / R, P, S | Consumidor fora da transação, depois do commit, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [falhas simuladas](evidencias/d4-falhas-simuladas.txt); [PostgreSQL](evidencias/d4-postgres.txt); prints ([conclusão com o canal fora](evidencias/img/d4-01-conclusao-canal-fora.png), [evento pendente](evidencias/img/d4-02-evento-pendente.png), [CI](evidencias/img/d4-06-ci-verde.png)) | **Atendido** |
 | **ASR10** — Conclusão e recompensa atômicas e exatamente uma vez | Desafio 4 | Consistência / R | Transação única, `@Version` e restrição única, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): 0 alunos com XP divergente; [repetição sem novo XP](evidencias/img/d4-04-recuperado.png) | **Atendido** |
 | **ASR11** — Nenhum evento confirmado se perde | Desafio 4 | Recuperabilidade / R | Outbox transacional, novas tentativas e reenvio manual, [ADR-004](adr/ADR-004-eventos-com-outbox-transacional.md) | [`CourseCompletionIntegrationTest`](../../src/test/java/org/example/ac1devops/web/CourseCompletionIntegrationTest.java); [PostgreSQL](evidencias/d4-postgres.txt): queda forçada e 1.601 de 1.601 notificações; prints ([queda](evidencias/img/d4-03-queda-processo.png), [recuperação](evidencias/img/d4-04-recuperado.png)) | **Atendido** em uma réplica; várias réplicas sem teste |
-| **ASR12** — Evento confirmado sobrevive à conexão instável | Desafio 5 | Conectividade intermitente e Disponibilidade / R | QoS 1 e sessão persistente, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`MqttBrokerIntegrationTest`](../../src/test/java/org/example/ac1devops/iot/internal/adapter/mqtt/MqttBrokerIntegrationTest.java); [fluxo real](evidencias/d5-fluxo-real.txt) | **Atendido** em um gateway |
-| **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições | **Atendido** |
-| **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py) | **Atendido**; autenticação e TLS pendentes para uso real |
+| **ASR12** — Evento confirmado sobrevive à conexão instável | Desafio 5 | Conectividade intermitente e Disponibilidade / R | QoS 1 e sessão persistente, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`MqttBrokerIntegrationTest`](../../src/test/java/org/example/ac1devops/iot/internal/adapter/mqtt/MqttBrokerIntegrationTest.java); [fluxo real](evidencias/d5-fluxo-real.txt); prints ([dispositivo offline](evidencias/img/d5-03-dispositivo-offline.png), [Core fora do ar](evidencias/img/d5-04-core-fora.png)) | **Atendido** em um gateway |
+| **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições; [print do reenvio](evidencias/img/d5-02-reenvio-duplicado.png) | **Atendido** |
+| **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py); prints ([eventos](evidencias/img/d5-01-eventos-normais.png), [CI](evidencias/img/d5-05-ci-verde.png)) | **Atendido**; autenticação e TLS pendentes para uso real |
 
 ---
 
@@ -1544,6 +1544,30 @@ Mosquitto real, Core em jar, simulador em Python e o PostgreSQL 16 do projeto. E
 | Core sem broker | Core subiu e concluiu por HTTP com 201; conectou sozinho quando o broker voltou |
 | Total | 16 eventos e 7 conclusões do aluno testado: **0 `eventId` repetidos, 0 conclusões repetidas e 0 alunos com XP divergente** (900 XP) |
 
+#### Execução manual do roteiro
+
+Execução do Bruno em 2026-11-03, com os comandos do roteiro abaixo e o aluno 3:
+
+| Passo | Valor observado | Print |
+|---|---|---|
+| Modo normal | 3 eventos publicados e confirmados com QoS 1; **3 `ACCEPTED`; 150 XP**, nível Prata | [`d5-01`](evidencias/img/d5-01-eventos-normais.png) |
+| Reenvio | Mesmo `eventId` nos 2 envios; **`duplicatesDiscarded: 1`; 250 XP**, somando 100 uma vez | [`d5-02`](evidencias/img/d5-02-reenvio-duplicado.png) |
+| Dispositivo offline | `conexao perdida`, 2 eventos guardados, `reconectado`, 3 confirmados e **3 `ACCEPTED`** | [`d5-03`](evidencias/img/d5-03-dispositivo-offline.png) |
+| Core fora do ar | PID 27696 encerrado; 3 eventos confirmados pelo broker com o Core fora; depois de voltar, **3 `ACCEPTED`, 600 XP**, nível Ouro | [`d5-04`](evidencias/img/d5-04-core-fora.png) |
+| CI | Run #5, commit `49ab6b2`: **Success, 3 jobs verdes**, em 1m 36s | [`d5-05`](evidencias/img/d5-05-ci-verde.png) |
+
+Os 600 XP do último passo somam as conclusões dos quatro cenários: 150, 100, 200 e 150.
+
+| Eventos normais | Reenvio descartado |
+|---|---|
+| ![3 eventos ACCEPTED e 150 XP](evidencias/img/d5-01-eventos-normais.png) | ![Mesmo eventId, duplicatesDiscarded 1 e 250 XP](evidencias/img/d5-02-reenvio-duplicado.png) |
+
+| Dispositivo offline | Core fora do ar |
+|---|---|
+| ![Conexão perdida, eventos guardados e entregues](evidencias/img/d5-03-dispositivo-offline.png) | ![Core encerrado, eventos ACCEPTED e 600 XP](evidencias/img/d5-04-core-fora.png) |
+
+![Run #5 com os 3 jobs verdes](evidencias/img/d5-05-ci-verde.png)
+
 #### Roteiro manual
 
 Comandos em PowerShell, na raiz do projeto. Usa as portas 1883 (Mosquitto), 5433 (PostgreSQL) e 8080 (Core).
@@ -1596,16 +1620,6 @@ py labs\desafio-5\simulador\simulador.py --modo tamanho
 docker compose stop postgres mosquitto
 ```
 
-Prints a salvar em `docs/arquitetura/evidencias/img/`:
-
-| Arquivo | O que mostrar |
-|---|---|
-| `d5-01-eventos-normais.png` | Modo normal, 3 eventos `ACCEPTED` e o XP do aluno |
-| `d5-02-reenvio-duplicado.png` | Mesmo `eventId` nos 2 envios, `duplicatesDiscarded` igual a 1 e XP somado uma vez |
-| `d5-03-dispositivo-offline.png` | `conexao perdida`, eventos guardados, `reconectado` e os eventos `ACCEPTED` |
-| `d5-04-core-fora.png` | Core encerrado, publicação confirmada e eventos `ACCEPTED` depois de o Core voltar |
-| `d5-05-ci-verde.png` | Run do GitHub com os 3 jobs verdes |
-
 #### Limites desta evidência
 
 - **Segurança:** sem TLS nem autenticação no laboratório. A porta só é publicada em `localhost`. Antes de qualquer uso real: TLS, credencial por
@@ -1616,8 +1630,6 @@ Prints a salvar em `docs/arquitetura/evidencias/img/`:
 - **Sem fila de mensagens mortas:** um erro permanente inesperado seria reentregue sem fim, e mensagens inválidas ficam só no log.
 - **Limite do broker:** até 10.000 mensagens por cliente desconectado.
 - **Presença e início:** registrados sem consultar se o aluno existe, porque ainda não têm consumidor.
-- **Roteiro:** os modos foram executados com um ambiente Python isolado, não com o `py` global; depois de instalar o `requirements.txt`, o comportamento
-  deve ser o mesmo.
 
 ---
 
@@ -1667,8 +1679,10 @@ A preencher.
 
 A consolidar ao fim do Desafio 6, a partir da matriz cumulativa de ASRs.
 
-**Histórico do CI da branch** (`feature/b1-architecture-lab`), conforme a API do GitHub em 2026-11-03: 4 runs, todos com
-sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`) e #4 (`3c3cce2`). O print `b1-ci-historico.png` ainda não foi anexado.
+**Histórico do CI da branch** (`feature/b1-architecture-lab`): 5 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`),
+#3 (`b1a3d3a`), #4 (`3c3cce2`) e #5 (`49ab6b2`).
+
+![Lista com os 5 runs verdes da branch](evidencias/img/b1-ci-historico.png)
 
 ## Equipe e links
 
