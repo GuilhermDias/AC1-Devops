@@ -77,5 +77,4 @@ estágios por componente e as imagens separadas já garantem.
 - O endpoint de métricas não tem autenticação, e Prometheus e Grafana só são publicados em `localhost`. Em produção, isso precisa de proteção.
 - As métricas usam o registro global do Micrometer, para não alterar construtores nem testes dos módulos; é um acoplamento estático aceito no
   laboratório.
-- O Jenkinsfile não pôde ser executado no Jenkins pelo autor deste documento: os comandos de cada estágio foram executados localmente, e o job depende
-  da configuração manual descrita no README.
+- O job do Jenkins é criado manualmente, seguindo o README. O build #1 ficou verde; a interrupção por um gate com falha não foi provocada no Jenkins.

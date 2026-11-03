@@ -110,7 +110,7 @@ total já salvo (um único `receiveXp` com o total acumulado recria a mesma sequ
 já que a regra depende só do total de XP, não do caminho percorrido), aplica a nova operação, e
 persiste de volta só os eventos novos.
 
-**Arquitetura — [Exercício B1, Architecture Lab](docs/arquitetura/README.md)**: os 6 desafios com RF, RNF, ASR, RPC, trade-offs,
+**Arquitetura — [AC2, Exercício B1: Arquitetura de Software e Tomada de Decisão Tech Lead](docs/arquitetura/README.md)** (DevOps e QA, Facens, Grupo 10, entrega em 04/11/2026): os 6 desafios com RF, RNF, ASR, RPC, trade-offs,
 ADRs (em [`docs/arquitetura/adr/`](docs/arquitetura/adr/)), C4 e evidências, além da matriz de ASRs e da síntese para a PoC da AF. O CI
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda `./mvnw verify` (testes, ArchUnit e
 piso de cobertura JaCoCo) em todo push e Pull Request.

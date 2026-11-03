@@ -1,5 +1,7 @@
 # Estudo de Caso: Educação Continuada Gamificada
 
+**AC2 — Exercício B1: Arquitetura de Software e Tomada de Decisão Tech Lead** · Disciplina DevOps e QA · Facens · Grupo 10 · Entrega em 04/11/2026
+
 Registro único e cumulativo do **Exercício B1 — Architecture Lab (DevOps e QA)**, sobre o Core da
 plataforma de Educação Continuada Gamificada (AC1, Grupo 10).
 
@@ -67,9 +69,9 @@ A numeração é global, de ASR1 a ASR17.
 | **ASR12** — Evento confirmado sobrevive à conexão instável | Desafio 5 | Conectividade intermitente e Disponibilidade / R | QoS 1 e sessão persistente, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`MqttBrokerIntegrationTest`](../../src/test/java/org/example/ac1devops/iot/internal/adapter/mqtt/MqttBrokerIntegrationTest.java); [fluxo real](evidencias/d5-fluxo-real.txt); prints ([dispositivo offline](evidencias/img/d5-03-dispositivo-offline.png), [Core fora do ar](evidencias/img/d5-04-core-fora.png)) | **Atendido** em um gateway |
 | **ASR13** — Um único efeito por evento, mesmo com reentrega | Desafio 5 | Consistência da integração / R | `eventId` único e efeito antes do registro, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | [`DeviceEventProcessorTest`](../../src/test/java/org/example/ac1devops/iot/internal/domain/DeviceEventProcessorTest.java); [fluxo real](evidencias/d5-fluxo-real.txt): 0 repetições; [print do reenvio](evidencias/img/d5-02-reenvio-duplicado.png) | **Atendido** |
 | **ASR14** — Core desacoplado dos dispositivos | Desafio 5 | Interoperabilidade / + | Broker MQTT e gateway no módulo `iot`, [ADR-005](adr/ADR-005-iot-com-mqtt-e-gateway.md) | Regra `soOAdapterDeIotConheceMqtt` do [`ModularArchitectureTest`](../../src/test/java/org/example/ac1devops/architecture/ModularArchitectureTest.java); [simulador](../../labs/desafio-5/simulador/simulador.py); prints ([eventos](evidencias/img/d5-01-eventos-normais.png), [CI](evidencias/img/d5-05-ci-verde.png)) | **Atendido**; autenticação e TLS pendentes para uso real |
-| **ASR15** — Nenhum artefato sai sem passar pelos gates | Desafio 6 | Testabilidade e Confiabilidade / S, R | Esteira única com estágios por componente, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`Jenkinsfile`](../../Jenkinsfile); comandos de todos os estágios executados | **Parcial:** falta executar no Jenkins (prints `d6-01` e `d6-02`) |
-| **ASR16** — ASRs de execução observáveis em operação | Desafio 6 | Observabilidade e Desempenho / S, P | Métricas por ASR, Prometheus e Grafana, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`ObservabilityIntegrationTest`](../../src/test/java/org/example/ac1devops/web/ObservabilityIntegrationTest.java); [fluxo real](evidencias/d6-observabilidade.txt): fallback de 90,8% com alerta ativo | **Atendido**; aparência do painel a confirmar no print `d6-04` |
-| **ASR17** — Operação reproduzível a partir do repositório | Desafio 6 | Recuperabilidade / R | Configurações versionadas e compose próprio, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`observabilidade/`](../../observabilidade/); [fluxo real](evidencias/d6-observabilidade.txt): recriado do zero | **Atendido** para a observabilidade; job do Jenkins é manual |
+| **ASR15** — Nenhum artefato sai sem passar pelos gates | Desafio 6 | Testabilidade e Confiabilidade / S, R | Esteira única com estágios por componente, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`Jenkinsfile`](../../Jenkinsfile); [build #1 no Jenkins](evidencias/img/d6-01-jenkins-verde.png): 182 testes, 0 falhas; [artefatos](evidencias/img/d6-02b-jenkins-artefatos.png) | **Atendido**; a interrupção por um gate com falha não foi provocada dentro do Jenkins |
+| **ASR16** — ASRs de execução observáveis em operação | Desafio 6 | Observabilidade e Desempenho / S, P | Métricas por ASR, Prometheus e Grafana, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`ObservabilityIntegrationTest`](../../src/test/java/org/example/ac1devops/web/ObservabilityIntegrationTest.java); [fluxo real](evidencias/d6-observabilidade.txt): fallback de 90,8% com alerta ativo; prints ([painel](evidencias/img/d6-04-grafana-painel.png), [fallback](evidencias/img/d6-05a-fallback.png), [alerta](evidencias/img/d6-05b-alerta.png)) | **Atendido** |
+| **ASR17** — Operação reproduzível a partir do repositório | Desafio 6 | Recuperabilidade / R | Configurações versionadas e compose próprio, [ADR-006](adr/ADR-006-esteira-unica-e-observabilidade.md) | [`observabilidade/`](../../observabilidade/); [fluxo real](evidencias/d6-observabilidade.txt): recriado do zero; [Prometheus](evidencias/img/d6-03-prometheus-alvos.png) | **Atendido** para a observabilidade; o job do Jenkins é criado manualmente |
 
 ---
 
@@ -202,7 +204,7 @@ verde — exatamente o que a alternativa B garante.
 
 ### 8. C4
 
-Elementos marcados **(planejado)** ainda não existem no código; os demais existem nesta branch.
+Retrato do fim do Desafio 1: os elementos marcados **(planejado)** não existiam naquele momento. O C4 atualizado está na [Síntese final](#síntese-final-decisões-levadas-para-a-poc-da-af).
 
 #### 8.1 Contexto (C4Context)
 
@@ -342,8 +344,7 @@ O plano de execução registrado pelo teste mostra o uso do índice:
 `PUBLIC.IDX_STUDENTS_XP_TOTAL ... /* index sorted */`.
 
 **Limites desta evidência:** cada valor é uma medição única e sem concorrência, em H2 em memória. O
-teste só falha acima de 1.000 ms, portanto **não comprova o p95 ≤ 300 ms da ASR2**. Isso continua
-pendente: medir em PostgreSQL 16, sob carga HTTP. O cache do top N é por instância.
+teste só falha acima de 1.000 ms, portanto **não comprova o p95 ≤ 300 ms da ASR2**. A medição em PostgreSQL 16, sob carga HTTP, foi feita no [Desafio 6](#desafio-6--cicd-e-observabilidade). O cache do top N é por instância.
 
 #### 9.5 Cobertura de testes
 
@@ -1660,7 +1661,7 @@ Este desafio não cria funcionalidade: atua sobre **todos os RFs**, na operaçã
 |---|---|---|---|
 | **Observabilidade** | S (Supportability: serviceability) | Latência, 5xx, throughput e uma métrica por ASR de execução em um painel | Atendida: 10 painéis, todos com dados no teste |
 | **Testabilidade** | S (Supportability) | Todos os gates automatizados | Atendida: 161 testes no Core, 12 e 9 nos componentes Python |
-| **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida no Jenkinsfile; **falta a execução no Jenkins** |
+| **Confiabilidade** | R (Reliability) | Artefato só com todos os gates verdes | Atendida: build #1 no Jenkins com todos os estágios verdes |
 | **Deploy independente** | + (restrição de implantação) | Artefatos separados, verificados por componente | Atendida: jar e imagem separados; sem publicação automática |
 | **Recuperabilidade** | R (Reliability) | Ambiente de observação recriado com um comando | Atendida: compose com tudo versionado, recriado do zero no teste |
 | **Desempenho** | P (Performance) | p95 do ranking ≤ 300 ms, com 100.000 alunos | Top 100: 114 ms. Posição: 79 ms. Página aleatória: 317 ms sob 10 threads |
@@ -1785,9 +1786,9 @@ C4Deployment
 | 2 | Métricas expostas | `mvnw.cmd test -Dtest=ObservabilityIntegrationTest` | As métricas dos ASRs aparecem em `/actuator/prometheus`; `/actuator/env` responde 404. |
 | 3 | Domínio sem métricas | `mvnw.cmd test -Dtest=ModularArchitectureTest` | Regra `dominioSemFrameworkNemAdapters` inclui Micrometer. |
 | 4 | Fluxo real, com falha provocada | Roteiro abaixo | Tabela abaixo e [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt). |
-| 5 | Build completo | `mvnw.cmd -B clean verify` | **161 testes**, 0 falhas. Cobertura: linhas 693/695 (99,7%) e branches 86/86. |
-
-**Não verificado por este documento:** o Jenkinsfile **não foi executado no Jenkins**, porque o job depende de configuração manual e o validador exige login. A renderização do painel também não foi vista: as consultas dos 10 painéis retornaram dados pela API, mas a aparência só será conferida nos prints.
+| 5 | Esteira no Jenkins | Job `ac1devops-b1`, passo a passo abaixo | **Build #1 verde em 5 min 15 s; 182 testes, 0 falhas**; jar e relatório do JaCoCo arquivados. |
+| 6 | GitHub Actions | Push na branch | Run #7 (`9552ea7`): **Success, 3 jobs verdes**, em 1m 52s. |
+| 7 | Build completo | `mvnw.cmd -B clean verify` | **161 testes**, 0 falhas. Cobertura: linhas 693/695 (99,7%) e branches 86/86. |
 
 #### Resultados do fluxo real
 
@@ -1809,11 +1810,45 @@ A página aleatória fica lenta por causa do deslocamento (`OFFSET`) e da contag
 
 | Condição | Resultado observado |
 |---|---|
-| Serviço de IA derrubado, com requisições contínuas | 20 respostas da IA e depois 112 de fallback; **taxa de 90,8%**; alerta `FallbackDaIaAlto` **ativo**. O status HTTP dessas chamadas não foi registrado aqui: o teste automatizado do D3 cobre esse ponto, e o painel de 5xx o mostrará no print `d6-05` |
+| Serviço de IA derrubado, com requisições contínuas | 20 respostas da IA e depois 112 de fallback; **taxa de 90,8%**; alerta `FallbackDaIaAlto` **ativo**. O status HTTP dessas chamadas não foi registrado aqui: o teste automatizado do D3 cobre esse ponto |
 | 40 conclusões, com o canal no ar | 40 `DELIVERED`, 0 `PENDING`, 0 `DEAD`; 25 badges |
 | Eventos IoT, com reenvio e inválidos | 4 `ACCEPTED`, 1 `DUPLICATE`, 3 `INVALID` |
 | Carga no ranking | 0 conexões aguardando no pool; 0 erros 5xx |
 | Operação | Alvo do Prometheus `up`; 5 regras de alerta válidas; Grafana com fonte de dados e painel provisionados |
+
+#### Execução manual
+
+Execução do Bruno em 2026-11-03, no Jenkins 2.582 local e com o roteiro abaixo:
+
+| Item | Valor observado | Print |
+|---|---|---|
+| Esteira no Jenkins, build #1 | **Todos os estágios verdes, em 5 min 15 s**: Build 16 s, ArchUnit 25 s, Testes 2 min 29 s, JaCoCo 6 s, Python em paralelo 1 min 13 s, Artefatos 17 s | [`d6-01`](evidencias/img/d6-01-jenkins-verde.png) |
+| Testes no Jenkins | **182 testes, 0 falhas** | [`d6-02a`](evidencias/img/d6-02a-jenkins-testes.png) |
+| Artefatos no Jenkins | `Grupo10_ATDD-0.0.1-SNAPSHOT.jar`, 63,42 MiB, e `site/jacoco` | [`d6-02b`](evidencias/img/d6-02b-jenkins-artefatos.png) |
+| Prometheus | Alvo `core`: **1/1 UP** | [`d6-03`](evidencias/img/d6-03-prometheus-alvos.png) |
+| Painel no Grafana, antes da queda | Core no ar, 0 req/s de 5xx, e dados nos 10 painéis | [`d6-04`](evidencias/img/d6-04-grafana-painel.png) |
+| Queda do serviço de IA | Fallback de **0% para 100%** | [`d6-05a`](evidencias/img/d6-05a-fallback.png) |
+| Alerta | `FallbackDaIaAlto` **FIRING**; os outros 4 inativos | [`d6-05b`](evidencias/img/d6-05b-alerta.png) |
+| GitHub Actions | Run #7: 3 jobs verdes | [`d6-06`](evidencias/img/d6-06-ci-verde.png) |
+
+Os 182 testes do Jenkins somam os 161 do Core, os 12 do serviço de IA e os 9 do simulador. Essa execução usou banco H2 e poucos dados: os tempos do painel não
+substituem a medição com 100.000 alunos.
+
+| Esteira no Jenkins | Resultado dos testes |
+|---|---|
+| ![Build #1 com todos os estágios verdes](evidencias/img/d6-01-jenkins-verde.png) | ![182 testes passando](evidencias/img/d6-02a-jenkins-testes.png) |
+
+| Artefatos arquivados | Alvo no Prometheus |
+|---|---|
+| ![Jar e relatório do JaCoCo](evidencias/img/d6-02b-jenkins-artefatos.png) | ![Alvo core 1/1 UP](evidencias/img/d6-03-prometheus-alvos.png) |
+
+![Painel completo no Grafana](evidencias/img/d6-04-grafana-painel.png)
+
+| Fallback de 0% para 100% | Alerta ativo |
+|---|---|
+| ![Painel de fallback subindo para 100%](evidencias/img/d6-05a-fallback.png) | ![FallbackDaIaAlto em FIRING](evidencias/img/d6-05b-alerta.png) |
+
+![Run #7 com os 3 jobs verdes](evidencias/img/d6-06-ci-verde.png)
 
 #### Como criar o job no Jenkins
 
@@ -1851,7 +1886,7 @@ docker run -d --rm --name ia-service -p 8000:8000 ia-service:lab
 # Terminal 2: sobe o Core
 $env:SPRING_PROFILES_ACTIVE="h2"; java -jar target\Grupo10_ATDD-0.0.1-SNAPSHOT.jar
 
-# Terminal 1: confere as metricas e o alvo do Prometheus (print d6-03: http://localhost:9091/targets)
+# Terminal 1: confere as metricas e o alvo do Prometheus (http://localhost:9091/targets)
 (curl.exe -s http://localhost:8080/actuator/prometheus) | Select-String 'ranking_query_seconds_count|outbox_events'
 Start-Process http://localhost:9091/targets
 
@@ -1864,13 +1899,13 @@ py labs\desafio-5\simulador\simulador.py --modo invalido --aluno $id
 py labs\desafio-6\carga_ranking.py 30 10
 1..30 | ForEach-Object { curl.exe -s -o NUL "http://localhost:8080/recomendacoes/students/$id"; Start-Sleep -Milliseconds 500 }
 Start-Process "http://localhost:3000/d/ac1devops"
-# Espere cerca de 30 s e tire o print d6-04
+# Espere cerca de 30 s para o painel atualizar
 
 # Terminal 1: provoca a falha, derrubando o servico de IA, e gera requisicoes por 1 minuto
 docker stop ia-service
 1..120 | ForEach-Object { curl.exe -s -o NUL -w "%{http_code} " "http://localhost:8080/recomendacoes/students/$id"; Start-Sleep -Milliseconds 500 }; ""
 Start-Process http://localhost:9091/alerts
-# Print d6-05: painel "Taxa de fallback da IA" perto de 100% e, em /alerts, FallbackDaIaAlto ativo
+# Resultado esperado: painel "taxa de fallback da IA" perto de 100% e, em /alerts, FallbackDaIaAlto ativo
 
 # Opcional: p95 com 100.000 alunos, em um banco descartavel que NAO toca nos seus dados
 # Terminal 2: Ctrl+C e depois:
@@ -1886,21 +1921,10 @@ docker compose stop mosquitto
 docker compose -f observabilidade\docker-compose.yml down
 ```
 
-Prints a salvar em `docs/arquitetura/evidencias/img/`:
-
-| Arquivo | O que mostrar |
-|---|---|
-| `d6-01-jenkins-verde.png` | Página do build no Jenkins com todos os estágios verdes |
-| `d6-02-jenkins-relatorios.png` | Resultado dos testes e artefatos arquivados (jar e JaCoCo) |
-| `d6-03-prometheus-alvos.png` | `http://localhost:9091/targets`, com o alvo `core` em `UP` |
-| `d6-04-grafana-painel.png` | Painel completo no Grafana, com latência, throughput, 5xx e métricas dos ASRs |
-| `d6-05-fallback-alerta.png` | Taxa de fallback perto de 100% e o alerta ativo |
-| `d6-06-ci-verde.png` | Run do GitHub Actions com os 3 jobs verdes |
-
 #### Limites desta evidência
 
-- **Jenkins:** esteira não executada no Jenkins até aqui; prova virá dos prints `d6-01` e `d6-02`.
-- **Gates:** a falha dos testes, do ArchUnit e do JaCoCo interrompe os comandos, como mostram as falhas simuladas dos desafios anteriores; a interrupção **dentro do Jenkins** não foi provocada.
+- **Gates:** a falha dos testes, do ArchUnit e do JaCoCo interrompe os comandos, como mostram as falhas simuladas dos desafios anteriores. No Jenkins, houve um build verde: a interrupção por um gate com falha **não foi provocada lá**.
+- **5xx durante a queda da IA:** o print do painel é anterior à queda, e o status dessas chamadas não foi registrado no fluxo real. O HTTP 200 do modo degradado é provado pelo teste automatizado do D3.
 - **Medições:** execução única, com tudo na mesma máquina. Servem de ordem de grandeza, não como capacidade de produção. 100.000 alunos cadastrados não significam 100.000 simultâneos.
 - **Sem implantação automática:** a esteira entrega o artefato.
 - **Sem métricas no Python:** o serviço de IA é observado pelo Core; o simulador é só um dispositivo de teste.
@@ -2055,7 +2079,7 @@ O nível Deployment está no [item 8 do Desafio 6](#desafio-6--cicd-e-observabil
 | **D3** | Serviço de IA e protocolo com timeout | ADR-003: serviço independente | ASR6–8; RPC1, 7, 8 | RF03, RF04; tolerância a falhas, deploy independente | Queda e lentidão reais, circuit breaker, contrato em 2 linguagens |
 | **D4** | Sem container novo; sequência síncrono x assíncrono | ADR-004: outbox, sem broker | ASR9–11; RPC9, 10 | Conclusão, RF02, RF05; recuperabilidade, consistência | Queda forçada, carga, 1.601 de 1.601 notificações |
 | **D5** | Dispositivos, broker e gateway | ADR-005: MQTT, sem segundo broker | ASR12–14; RPC11–13 | RF06; conectividade intermitente, interoperabilidade | Broker real, reenvio, Core e broker reiniciados |
-| **D6** | Implantação e operação | ADR-006: esteira única e métricas | ASR15–17; RPC14–16 | Todos os RFs; observabilidade, recuperabilidade | Comandos dos estágios, queda da IA observada, p95 medido |
+| **D6** | Implantação e operação | ADR-006: esteira única e métricas | ASR15–17; RPC14–16 | Todos os RFs; observabilidade, recuperabilidade | Build verde no Jenkins, queda da IA observada com alerta, p95 medido |
 
 **O que não fechava e foi corrigido nesta conferência:**
 
@@ -2076,28 +2100,29 @@ O nível Deployment está no [item 8 do Desafio 6](#desafio-6--cicd-e-observabil
 | **D3** | [`ia-service`](../../labs/desafio-3/ia-service/), [`recomendacao`](../../src/main/java/org/example/ac1devops/recomendacao/) | [`d3-roteiro.txt`](evidencias/d3-roteiro.txt), [`d3-falhas-simuladas.txt`](evidencias/d3-falhas-simuladas.txt), prints [`d3-*`](evidencias/img/d3-01-ia-health.png) |
 | **D4** | [`cursos`](../../src/main/java/org/example/ac1devops/cursos/), [`notificacoes`](../../src/main/java/org/example/ac1devops/notificacoes/), [`carga_conclusoes.py`](../../labs/desafio-4/carga_conclusoes.py) | [`d4-postgres.txt`](evidencias/d4-postgres.txt), [`d4-falhas-simuladas.txt`](evidencias/d4-falhas-simuladas.txt), prints [`d4-*`](evidencias/img/d4-01-conclusao-canal-fora.png) |
 | **D5** | [`iot`](../../src/main/java/org/example/ac1devops/iot/), [`labs/desafio-5`](../../labs/desafio-5/) | [`d5-fluxo-real.txt`](evidencias/d5-fluxo-real.txt), prints [`d5-*`](evidencias/img/d5-01-eventos-normais.png) |
-| **D6** | [`Jenkinsfile`](../../Jenkinsfile), [`observabilidade`](../../observabilidade/), [`labs/desafio-6`](../../labs/desafio-6/) | [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt); prints `d6-*` pendentes |
+| **D6** | [`Jenkinsfile`](../../Jenkinsfile), [`observabilidade`](../../observabilidade/), [`labs/desafio-6`](../../labs/desafio-6/) | [`d6-observabilidade.txt`](evidencias/d6-observabilidade.txt), prints [`d6-*`](evidencias/img/d6-01-jenkins-verde.png) |
 
 As evidências da AC1 (ciclo RED/GREEN/BLUE, Docker, front-end) ficam em [`evidencias/`](../../evidencias/), na raiz, separadas de propósito.
 
 ### Histórico do CI
 
-GitHub Actions, branch `feature/b1-architecture-lab`: 5 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`), #4 (`3c3cce2`) e #5 (`49ab6b2`).
+GitHub Actions, branch `feature/b1-architecture-lab`: 7 runs, todos com sucesso: #1 (`4d21fa4`), #2 (`03007e1`), #3 (`b1a3d3a`), #4 (`3c3cce2`), #5 (`49ab6b2`), #6 (`7b72aa1`)
+e #7 (`9552ea7`).
 
-![Lista com os 5 runs verdes da branch](evidencias/img/b1-ci-historico.png)
+![Lista com os 7 runs verdes da branch](evidencias/img/b1-ci-historico-final.png)
 
 ## Equipe e links
 
-**Grupo 10** — preencher nomes e RAs:
+**Equipe: Grupo 10**
 
-| Nome | RA | GitHub |
-|---|---|---|
-| `[NOME]` | `[RA]` | `bruno-cO70` |
-| `[NOME]` | `[RA]` | `viniciusalegre20` |
-| `[NOME]` | `[RA]` | `LeovLuz` |
-| `[NOME]` | `[RA]` | `GuilhermDias` |
-| `[NOME]` | `[RA]` | `[USUÁRIO]` |
-| `[NOME]` | `[RA]` | `[USUÁRIO]` |
+| Integrante | RA |
+|---|---|
+| Bruno Carvalho de Oliveira | 235537 |
+| Leonardo Vergilio Luz | 234674 |
+| Guilherme Dias Thomaz de Oliveira | 235128 |
+| Vinicius Alegre de Oliveira | 211902 |
+
+A equipe de 6 desenvolvedores da RPC2 é a premissa usada nas decisões de arquitetura, não o tamanho do Grupo 10.
 
 | Artefato | Caminho |
 |---|---|
